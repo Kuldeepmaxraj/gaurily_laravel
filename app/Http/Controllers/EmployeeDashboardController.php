@@ -43,9 +43,9 @@ class EmployeeDashboardController extends Controller
             ->limit(5)
             ->get();
 
-        $upcomingHolidays = Holiday::where('date', '>=', today())
-            ->where('date', '<=', today()->addDays(60))
-            ->orderBy('date')
+        $upcomingHolidays = Holiday::where('holiday_date', '>=', today())
+            ->where('holiday_date', '<=', today()->addDays(60))
+            ->orderBy('holiday_date')
             ->get();
 
         return view('employee.dashboard', compact(

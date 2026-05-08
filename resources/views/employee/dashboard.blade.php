@@ -162,12 +162,12 @@
                 <tbody>
                     @foreach($upcomingHolidays as $holiday)
                     <tr>
-                        <td class="align-middle fw-medium small">{{ $holiday->date->format('d M Y') }}</td>
-                        <td class="align-middle text-muted small">{{ $holiday->date->format('l') }}</td>
+                        <td class="align-middle fw-medium small">{{ \Carbon\Carbon::parse($holiday->holiday_date)->format('d M Y') }}</td>
+                        <td class="align-middle text-muted small">{{ \Carbon\Carbon::parse($holiday->holiday_date)->format('l') }}</td>
                         <td class="align-middle fw-semibold small">{{ $holiday->name }}</td>
                         <td class="align-middle">
-                            <span class="badge rounded-pill {{ $holiday->type === 'public' ? 'bg-success' : 'bg-warning text-dark' }}" style="font-size:11px;">
-                                {{ ucfirst($holiday->type ?? 'Public') }}
+                            <span class="badge rounded-pill {{ $holiday->is_optional ? 'bg-warning text-dark' : 'bg-success' }}" style="font-size:11px;">
+                                {{ $holiday->is_optional ? 'Optional' : 'Public' }}
                             </span>
                         </td>
                     </tr>
