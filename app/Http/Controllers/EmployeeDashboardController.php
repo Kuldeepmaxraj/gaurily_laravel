@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceLog;
+use App\Models\Holiday;
 use App\Models\LeaveRequest;
 use App\Models\EmployeeNotification;
 use App\Models\WorkLog;
@@ -42,10 +43,16 @@ class EmployeeDashboardController extends Controller
             ->limit(5)
             ->get();
 
+        $upcomingHolidays = Holiday::where('date', '>=', today())
+            ->where('date', '<=', today()->addDays(60))
+            ->orderBy('date')
+            ->get();
+
         return view('employee.dashboard', compact(
             'employee', 'todayLog', 'shift',
             'presentDays', 'halfDays', 'lateDays', 'absentDays',
-            'pendingLeaves', 'leaveBalances', 'notifications', 'todayWorkLogs'
+            'pendingLeaves', 'leaveBalances', 'notifications', 'todayWorkLogs',
+            'upcomingHolidays'
         ));
     }
 

@@ -56,22 +56,32 @@ class AdminController extends Controller
 
     public function employees(Request $request)
     {
+        $authUser = Auth::user()->load('role', 'team');
+        $role     = $authUser->role?->name;
+
         $query = Employee::with(['role', 'shift', 'team'])
             ->when($request->search, fn ($q, $s) => $q->where('name', 'like', "%{$s}%")
                 ->orWhere('employee_code', 'like', "%{$s}%"))
             ->when($request->role, fn ($q, $r) => $q->whereHas('role', fn ($q2) => $q2->where('name', $r)))
             ->when($request->status, fn ($q, $s) => $q->where('status', $s));
 
+        // Team leads only see their own team's employees
+        if ($role === 'team_lead') {
+            $query->where('team_id', $authUser->team_id);
+        }
+
         $employees = $query->orderBy('name')->paginate(20)->withQueryString();
         $roles     = Role::all();
         $shifts    = Shift::where('is_active', true)->get();
         $teams     = Team::where('is_active', true)->get();
+        $canEdit   = $role === 'admin';
 
-        return view('admin.employees.index', compact('employees', 'roles', 'shifts', 'teams'));
+        return view('admin.employees.index', compact('employees', 'roles', 'shifts', 'teams', 'canEdit'));
     }
 
     public function createEmployee()
     {
+        abort_unless(Auth::user()->role?->name === 'admin', 403);
         $roles  = Role::all();
         $shifts = Shift::where('is_active', true)->get();
         $teams  = Team::where('is_active', true)->get();
@@ -104,6 +114,7 @@ class AdminController extends Controller
 
     public function editEmployee(Employee $employee)
     {
+        abort_unless(Auth::user()->role?->name === 'admin', 403);
         $roles  = Role::all();
         $shifts = Shift::where('is_active', true)->get();
         $teams  = Team::where('is_active', true)->get();
@@ -112,6 +123,7 @@ class AdminController extends Controller
 
     public function updateEmployee(Request $request, Employee $employee)
     {
+        abort_unless(Auth::user()->role?->name === 'admin', 403);
         $data = $request->validate([
             'name'            => 'required|string|max:100',
             'phone'           => 'nullable|string|max:20',

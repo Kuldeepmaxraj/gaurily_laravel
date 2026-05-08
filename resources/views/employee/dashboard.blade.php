@@ -148,6 +148,37 @@
         @endif
     </div>
 </div>
+
+{{-- Upcoming Holidays --}}
+@if($upcomingHolidays->count())
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <h5 class="fw-bold mb-3"><i class="bi bi-calendar-heart me-2 text-primary"></i>Upcoming Holidays</h5>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr><th>Date</th><th>Day</th><th>Holiday</th><th>Type</th></tr>
+                </thead>
+                <tbody>
+                    @foreach($upcomingHolidays as $holiday)
+                    <tr>
+                        <td class="align-middle fw-medium small">{{ $holiday->date->format('d M Y') }}</td>
+                        <td class="align-middle text-muted small">{{ $holiday->date->format('l') }}</td>
+                        <td class="align-middle fw-semibold small">{{ $holiday->name }}</td>
+                        <td class="align-middle">
+                            <span class="badge rounded-pill {{ $holiday->type === 'public' ? 'bg-success' : 'bg-warning text-dark' }}" style="font-size:11px;">
+                                {{ ucfirst($holiday->type ?? 'Public') }}
+                            </span>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+@endif
+
 @endsection
 
 @push('styles')

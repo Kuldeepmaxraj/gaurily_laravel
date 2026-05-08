@@ -5,9 +5,11 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-bold mb-0">Employees</h4>
+    @if($canEdit)
     <a href="{{ route('admin.employees.create') }}" class="btn btn-primary">
         <i class="bi bi-plus-lg me-1"></i>Add Employee
     </a>
+    @endif
 </div>
 
 {{-- Filters --}}
@@ -64,7 +66,9 @@
                             </span>
                         </td>
                         <td>
+                            @if($canEdit)
                             <a href="{{ route('admin.employees.edit', $emp) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                            @endif
                         </td>
                     </tr>
                     @empty
