@@ -16,19 +16,26 @@
 
         /* ── Sidebar ── */
         .sidebar {
-            min-height: 100vh;
+            height: 100vh;
             background: #fff;
             width: 240px;
             position: fixed;
             top: 0; left: 0;
-            z-index: 100;
+            z-index: 1040;
             border-right: 1px solid #eef0f6;
             display: flex;
             flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: #e5e7eb transparent;
         }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
         .sidebar-logo {
             padding: 20px 20px 16px;
             border-bottom: 1px solid #eef0f6;
+            flex-shrink: 0;
         }
         .sidebar a {
             color: #6b7280;
@@ -53,7 +60,18 @@
             text-transform: uppercase;
             letter-spacing: .06em;
             padding: 16px 24px 4px;
+            flex-shrink: 0;
         }
+
+        /* Sidebar overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1039;
+        }
+        .sidebar-overlay.show { display: block; }
 
         /* ── Topbar ── */
         .topbar {
@@ -71,6 +89,16 @@
             font-weight: 600;
             font-size: 15px;
             color: #111827;
+        }
+        .sidebar-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #374151;
+            padding: 0;
+            margin-right: 12px;
+            cursor: pointer;
         }
 
         /* ── Main ── */
@@ -105,18 +133,23 @@
             font-size: 13px; font-weight: 700; color: #0066FF;
         }
 
-        @media(max-width:768px){
-            .sidebar { display: none; }
+        @media(max-width: 991px){
+            .sidebar { transform: translateX(-100%); transition: transform .25s ease; }
+            .sidebar.show { transform: translateX(0); }
             .topbar { left: 0; }
             .main-content { margin-left: 0; }
+            .sidebar-toggle { display: block; }
         }
     </style>
     @stack('styles')
 </head>
 <body>
 
+{{-- Sidebar overlay (mobile) --}}
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
 {{-- Sidebar --}}
-<nav class="sidebar">
+<nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
         <a href="{{ route('home') }}" class="d-block" style="padding:0;margin:0;background:none;border-radius:0;">
             <img src="{{ asset('logo.svg') }}" alt="Gaurily" style="height:36px;">
@@ -183,6 +216,9 @@
 
 {{-- Topbar --}}
 <div class="topbar">
+    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+        <i class="bi bi-list"></i>
+    </button>
     <span class="topbar-title d-none d-md-block">@yield('title', 'Dashboard')</span>
     <div class="ms-auto d-flex align-items-center gap-3">
         @php $authUser = auth()->user(); @endphp
@@ -227,6 +263,30 @@
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const toggle  = document.getElementById('sidebarToggle');
+    if (toggle) {
+        toggle.addEventListener('click', () => {
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+        });
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('show');
+            overlay.classList.remove('show');
+        });
+        // Close sidebar when a nav link is clicked on mobile
+        sidebar.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth < 992) {
+                    sidebar.classList.remove('show');
+                    overlay.classList.remove('show');
+                }
+            });
+        });
+    }
+</script>
 @stack('scripts')
 </body>
 </html>

@@ -14,6 +14,18 @@ use Illuminate\Support\Facades\Mail;
 class AttendanceController extends Controller
 {
     /**
+     * Detect if the request comes from a mobile device.
+     */
+    private function isMobile(Request $request): bool
+    {
+        $ua = $request->userAgent() ?? '';
+        return (bool) preg_match(
+            '/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|webOS/i',
+            $ua
+        );
+    }
+
+    /**
      * Show employee's attendance history page.
      */
     public function index(Request $request)
@@ -38,6 +50,10 @@ class AttendanceController extends Controller
      */
     public function clockIn(Request $request)
     {
+        if ($this->isMobile($request)) {
+            return back()->with('error', 'Attendance cannot be marked from a mobile device. Please use a desktop or laptop.');
+        }
+
         $employee = Auth::user();
         $now      = Carbon::now();  // Asia/Kolkata
 
@@ -92,6 +108,10 @@ class AttendanceController extends Controller
      */
     public function startBreak(Request $request)
     {
+        if ($this->isMobile($request)) {
+            return back()->with('error', 'Attendance cannot be marked from a mobile device. Please use a desktop or laptop.');
+        }
+
         $employee = Auth::user();
         $log      = $this->getTodayLog($employee);
 
@@ -115,6 +135,10 @@ class AttendanceController extends Controller
      */
     public function endBreak(Request $request)
     {
+        if ($this->isMobile($request)) {
+            return back()->with('error', 'Attendance cannot be marked from a mobile device. Please use a desktop or laptop.');
+        }
+
         $employee = Auth::user();
         $log      = $this->getTodayLog($employee);
 
@@ -137,6 +161,10 @@ class AttendanceController extends Controller
      */
     public function clockOut(Request $request)
     {
+        if ($this->isMobile($request)) {
+            return back()->with('error', 'Attendance cannot be marked from a mobile device. Please use a desktop or laptop.');
+        }
+
         $employee = Auth::user();
         $log      = $this->getTodayLog($employee);
 
