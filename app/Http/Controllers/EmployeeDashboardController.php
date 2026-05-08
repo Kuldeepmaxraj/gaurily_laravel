@@ -94,4 +94,12 @@ class EmployeeDashboardController extends Controller
 
         return back()->with('success', 'Password changed successfully.');
     }
+
+    public function holidays()
+    {
+        $year     = request('year', now()->year);
+        $holidays = Holiday::whereYear('holiday_date', $year)->orderBy('holiday_date')->get();
+        $years    = range(now()->year - 1, now()->year + 1);
+        return view('employee.holidays', compact('holidays', 'year', 'years'));
+    }
 }

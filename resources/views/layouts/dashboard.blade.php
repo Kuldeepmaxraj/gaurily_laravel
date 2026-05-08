@@ -173,6 +173,9 @@
     <a href="{{ route('employee.leave.index') }}" class="{{ request()->routeIs('employee.leave*') ? 'active' : '' }}">
         <i class="bi bi-calendar3"></i> My Leaves
     </a>
+    <a href="{{ route('employee.holidays') }}" class="{{ request()->routeIs('employee.holidays') ? 'active' : '' }}">
+        <i class="bi bi-calendar-heart"></i> Holidays
+    </a>
     <a href="{{ route('employee.profile') }}" class="{{ request()->routeIs('employee.profile*') ? 'active' : '' }}">
         <i class="bi bi-person"></i> My Profile
     </a>

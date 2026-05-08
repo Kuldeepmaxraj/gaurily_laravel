@@ -49,6 +49,9 @@ Route::middleware('auth')->prefix('dashboard')->name('employee.')->group(functio
 
     // Work logs
     Route::post('/work-log',          [WorkLogController::class, 'store'])->name('work-log.store');
+
+    // Holidays (read-only)
+    Route::get('/holidays',           [EmployeeDashboardController::class, 'holidays'])->name('holidays');
 });
 
 // ─── Admin / HR ───────────────────────────────────────────────────────────────
