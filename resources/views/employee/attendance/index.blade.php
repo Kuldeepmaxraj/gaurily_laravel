@@ -35,7 +35,7 @@
                         <td>{{ $log->login_time?->format('h:i A') ?? '—' }}</td>
                         <td>{{ $log->logout_time?->format('h:i A') ?? '—' }}</td>
                         <td>{{ $log->total_break_minutes ? $log->total_break_minutes.'m' : '0m' }}</td>
-                        <td>@if($log->net_hours){{ floor($log->net_hours) }}h {{ round(($log->net_hours - floor($log->net_hours)) * 60) }}m@else —@endif</td>
+                        <td>{{ $log->net_hours ? floor($log->net_hours).'h '.round(($log->net_hours - floor($log->net_hours)) * 60).'m' : '—' }}</td>
                         <td>
                             <span class="badge bg-{{ match($log->status) { 'present'=>'success','half_day'=>'warning','absent'=>'danger','holiday'=>'info','leave'=>'primary',default=>'secondary'} }}">
                                 {{ ucfirst(str_replace('_',' ',$log->status)) }}

@@ -30,7 +30,7 @@
             </div>
             <div class="col-md-4">
                 <div class="text-muted small">Net Hours</div>
-                <div class="fw-semibold fs-5">@if($todayLog?->net_hours){{ floor($todayLog->net_hours) }}h {{ round(($todayLog->net_hours - floor($todayLog->net_hours)) * 60) }}m@else —@endif</div>
+                <div class="fw-semibold fs-5">{{ $todayLog?->net_hours ? floor($todayLog->net_hours).'h '.round(($todayLog->net_hours - floor($todayLog->net_hours)) * 60).'m' : '—' }}</div>
                 @if($todayLog?->status)
                     <span class="badge bg-{{ match($todayLog->status) { 'present'=>'success','half_day'=>'warning','absent'=>'danger',default=>'secondary'} }}">
                         {{ ucfirst(str_replace('_',' ',$todayLog->status)) }}
