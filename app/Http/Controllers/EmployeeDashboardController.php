@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceLog;
+use App\Models\AttendanceSetting;
 use App\Models\Holiday;
 use App\Models\LeaveRequest;
 use App\Models\EmployeeNotification;
@@ -48,11 +49,13 @@ class EmployeeDashboardController extends Controller
             ->orderBy('holiday_date')
             ->get();
 
+        $allowedBreak = (int) AttendanceSetting::getValue('allowed_break_minutes', 30);
+
         return view('employee.dashboard', compact(
             'employee', 'todayLog', 'shift',
             'presentDays', 'halfDays', 'lateDays', 'absentDays',
             'pendingLeaves', 'leaveBalances', 'notifications', 'todayWorkLogs',
-            'upcomingHolidays'
+            'upcomingHolidays', 'allowedBreak'
         ));
     }
 

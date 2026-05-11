@@ -39,6 +39,33 @@
             </div>
         </div>
 
+        {{-- Break summary bar --}}
+        @if($todayLog && $todayLog->login_time && !$todayLog->logout_time)
+        @php
+            $breakUsed = $todayLog->total_break_minutes ?? 0;
+            $breakPct  = $allowedBreak > 0 ? min(100, round($breakUsed / $allowedBreak * 100)) : 100;
+            $breakOver = max(0, $breakUsed - $allowedBreak);
+            $barColor  = $breakOver > 0 ? '#ef4444' : ($breakPct >= 80 ? '#f59e0b' : '#22c55e');
+        @endphp
+        <div class="mt-3 p-3 rounded-3" style="background:#f8fafc;border:1px solid #eef0f6;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="small fw-medium" style="color:#374151;">Break Used</span>
+                <span class="small fw-semibold {{ $breakOver > 0 ? 'text-danger' : 'text-muted' }}">
+                    {{ $breakUsed }}m used &mdash;
+                    @if($breakOver > 0)
+                        <span class="text-danger">{{ $breakOver }}m over (will be deducted from net hours)</span>
+                    @else
+                        {{ $allowedBreak - $breakUsed }}m remaining
+                    @endif
+                </span>
+            </div>
+            <div class="progress" style="height:6px;border-radius:4px;background:#e5e7eb;">
+                <div class="progress-bar" style="width:{{ $breakPct }}%;background:{{ $barColor }};border-radius:4px;transition:width .4s;"></div>
+            </div>
+            <div class="text-muted mt-1" style="font-size:11px;">{{ $allowedBreak }}m free break allowed per day</div>
+        </div>
+        @endif
+
         <div class="mt-4 d-flex flex-wrap gap-2">
             @if(!$todayLog || !$todayLog->login_time)
                 <form method="POST" action="{{ route('employee.attendance.clock-in') }}">@csrf
