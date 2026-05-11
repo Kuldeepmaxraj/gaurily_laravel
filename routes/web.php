@@ -83,8 +83,10 @@ Route::middleware(['auth', 'role:admin,hr,team_lead'])->prefix('admin')->name('a
     Route::delete('/teams/{team}',    [AdminController::class, 'destroyTeam'])->name('teams.destroy');
 
     // Attendance report
-    Route::get('/attendance',        [AdminController::class, 'attendanceReport'])->name('attendance');
-    Route::get('/attendance/export', [AdminController::class, 'exportAttendance'])->name('attendance.export');
+    Route::get('/attendance',                          [AdminController::class, 'attendanceReport'])->name('attendance');
+    Route::get('/attendance/export',                   [AdminController::class, 'exportAttendance'])->name('attendance.export');
+    Route::get('/attendance/{log}/edit',               [AdminController::class, 'editAttendance'])->name('attendance.edit');
+    Route::put('/attendance/{log}',                    [AdminController::class, 'updateAttendance'])->name('attendance.update');
     Route::middleware('role:admin,hr')->group(function () {
         Route::get('/shifts',                    [AdminController::class, 'shifts'])->name('shifts');
         Route::get('/shifts/create',             [AdminController::class, 'createShift'])->name('shifts.create');

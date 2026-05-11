@@ -100,6 +100,7 @@
                         <th>Status</th>
                         <th>Late</th>
                         <th>Work Logs</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -160,10 +161,18 @@
                                 <span class="text-muted small">—</span>
                             @endif
                         </td>
+                        <td class="align-middle">
+                            <a href="{{ route('admin.attendance.edit', $log) }}"
+                               class="btn btn-sm btn-outline-secondary rounded-pill"
+                               style="font-size:12px;padding:2px 10px;"
+                               title="Edit attendance">
+                                <i class="bi bi-pencil-square"></i>
+                            </a>
+                        </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="10" class="text-center text-muted py-5">
+                        <td colspan="11" class="text-center text-muted py-5">
                             <i class="bi bi-calendar-x display-6 d-block mb-2 opacity-25"></i>
                             No attendance records found for this period.
                         </td>

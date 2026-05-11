@@ -246,6 +246,73 @@ class AdminController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
+    // ---------- Attendance Edit ----------
+
+    public function editAttendance(AttendanceLog $log)
+    {
+        $log->load(['employee', 'shift', 'breaks']);
+        return view('admin.attendance.edit', compact('log'));
+    }
+
+    public function updateAttendance(Request $request, AttendanceLog $log)
+    {
+        $data = $request->validate([
+            'login_time'  => 'required|date_format:H:i',
+            'logout_time' => 'nullable|date_format:H:i',
+            'notes'       => 'nullable|string|max:500',
+            'breaks'      => 'nullable|array',
+            'breaks.*.id'          => 'nullable|integer|exists:attendance_breaks,id',
+            'breaks.*.break_start' => 'required|date_format:H:i',
+            'breaks.*.break_end'   => 'nullable|date_format:H:i',
+        ]);
+
+        $date = $log->attendance_date->format('Y-m-d');
+
+        $log->login_time  = $date . ' ' . $data['login_time'] . ':00';
+        $log->logout_time = $data['logout_time'] ? $date . ' ' . $data['logout_time'] . ':00' : null;
+        $log->notes       = $data['notes'] ?? $log->notes;
+        $log->save();
+
+        // Update breaks
+        if (!empty($data['breaks'])) {
+            // Delete breaks not in submitted list
+            $submittedIds = collect($data['breaks'])->pluck('id')->filter()->toArray();
+            $log->breaks()->whereNotIn('id', $submittedIds)->delete();
+
+            foreach ($data['breaks'] as $breakData) {
+                $start = $date . ' ' . $breakData['break_start'] . ':00';
+                $end   = !empty($breakData['break_end']) ? $date . ' ' . $breakData['break_end'] . ':00' : null;
+                $duration = $end ? (int) \Carbon\Carbon::parse($start)->diffInMinutes(\Carbon\Carbon::parse($end)) : 0;
+
+                if (!empty($breakData['id'])) {
+                    $log->breaks()->where('id', $breakData['id'])->update([
+                        'break_start'       => $start,
+                        'break_end'         => $end,
+                        'duration_minutes'  => $duration,
+                    ]);
+                } else {
+                    $log->breaks()->create([
+                        'break_start'       => $start,
+                        'break_end'         => $end,
+                        'duration_minutes'  => $duration,
+                    ]);
+                }
+            }
+        } else {
+            $log->breaks()->delete();
+        }
+
+        // Recalculate total_break_minutes from all breaks then recalculate net hours
+        $totalBreak = $log->breaks()->whereNotNull('break_end')->sum('duration_minutes');
+        $log->update(['total_break_minutes' => $totalBreak]);
+        $log->recalculate();
+
+        return redirect()->route('admin.attendance', [
+            'month'       => $log->attendance_date->format('Y-m'),
+            'employee_id' => $log->employee_id,
+        ])->with('success', 'Attendance record updated and recalculated.');
+    }
+
     // ---------- Shift Management ----------
 
     public function shifts()
