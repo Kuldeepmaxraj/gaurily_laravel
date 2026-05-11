@@ -42,14 +42,21 @@
         {{-- Break summary bar --}}
         @if($todayLog && $todayLog->login_time && !$todayLog->logout_time)
         @php
-            $breakUsed = $todayLog->total_break_minutes ?? 0;
-            $breakPct  = $allowedBreak > 0 ? min(100, round($breakUsed / $allowedBreak * 100)) : 100;
-            $breakOver = max(0, $breakUsed - $allowedBreak);
-            $barColor  = $breakOver > 0 ? '#ef4444' : ($breakPct >= 80 ? '#f59e0b' : '#22c55e');
+            $activeBreak    = $todayLog->activeBreak();
+            $liveBreakMins  = $activeBreak ? (int) \Carbon\Carbon::parse($activeBreak->break_start)->diffInMinutes(now()) : 0;
+            $breakUsed      = ($todayLog->total_break_minutes ?? 0) + $liveBreakMins;
+            $breakPct       = $allowedBreak > 0 ? min(100, round($breakUsed / $allowedBreak * 100)) : 100;
+            $breakOver      = max(0, $breakUsed - $allowedBreak);
+            $barColor       = $breakOver > 0 ? '#ef4444' : ($breakPct >= 80 ? '#f59e0b' : '#22c55e');
         @endphp
         <div class="mt-3 p-3 rounded-3" style="background:#f8fafc;border:1px solid #eef0f6;">
             <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="small fw-medium" style="color:#374151;">Break Used</span>
+                <span class="small fw-medium" style="color:#374151;">
+                    Break Used
+                    @if($liveBreakMins > 0)
+                        <span class="badge ms-1" style="background:#eff6ff;color:#0066FF;font-size:10px;">● On break</span>
+                    @endif
+                </span>
                 <span class="small fw-semibold {{ $breakOver > 0 ? 'text-danger' : 'text-muted' }}">
                     {{ $breakUsed }}m used &mdash;
                     @if($breakOver > 0)
