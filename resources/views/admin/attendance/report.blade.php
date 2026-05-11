@@ -108,7 +108,7 @@
                         <td class="align-middle fw-medium small">{{ $log->login_time?->format('h:i A') ?? '—' }}</td>
                         <td class="align-middle fw-medium small">{{ $log->logout_time?->format('h:i A') ?? '—' }}</td>
                         <td class="align-middle small text-muted">{{ $log->total_break_minutes }}m</td>
-                        <td class="align-middle fw-semibold small">{{ $log->net_hours ? number_format($log->net_hours,2).'h' : '—' }}</td>
+                        <td class="align-middle fw-semibold small">@if($log->net_hours){{ floor($log->net_hours) }}h {{ round(($log->net_hours - floor($log->net_hours)) * 60) }}m@else —@endif</td>
                         <td class="align-middle">
                             @php
                                 $statusColor = match($log->status ?? '') {

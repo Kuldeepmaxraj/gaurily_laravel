@@ -38,6 +38,7 @@
             <ul class="small text-muted ps-3 mb-0">
                 <li class="mb-2"><strong>Full-day threshold:</strong> If net hours ≥ this value, status = Present.</li>
                 <li class="mb-2"><strong>Half-day threshold:</strong> If net hours ≥ this value (but less than full-day), status = Half Day. Below this = Absent.</li>
+                <li class="mb-2"><strong>Allowed break (mins):</strong> Each employee gets this many break minutes free per day. Only time <em>beyond</em> this is deducted from net hours. Default: 30 mins.</li>
                 <li class="mb-2"><strong>EL accrual per month:</strong> Earned Leave days added to each employee's balance at month-end.</li>
                 <li class="mb-2"><strong>EL carry-forward max:</strong> At year-end, unused EL above this value is forfeited.</li>
                 <li><strong>Working days/week:</strong> Used to compute total working days when calculating leave periods.</li>
