@@ -57,9 +57,11 @@ class AttendanceLog extends Model
             return;
         }
 
-        $totalMinutes = $this->login_time->diffInMinutes($this->logout_time);
-        $netMinutes   = $totalMinutes - $this->total_break_minutes;
-        $netHours     = round($netMinutes / 60, 2);
+        $totalMinutes       = $this->login_time->diffInMinutes($this->logout_time);
+        $allowedBreak       = (int) AttendanceSetting::getValue('allowed_break_minutes', 30);
+        $deductibleBreak    = max(0, $this->total_break_minutes - $allowedBreak);
+        $netMinutes         = $totalMinutes - $deductibleBreak;
+        $netHours           = round($netMinutes / 60, 2);
 
         $presentThreshold  = (float) AttendanceSetting::getValue('present_hours', 8);
         $halfDayThreshold  = (float) AttendanceSetting::getValue('half_day_hours', 4);
