@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\AbsenceAlert;
 use App\Models\Employee;
 use App\Models\AttendanceLog;
+use App\Models\AttendanceSetting;
 use App\Models\LeaveRequest;
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
@@ -180,8 +181,9 @@ class AdminController extends Controller
 
         $logs      = $query->orderByDesc('attendance_date')->paginate(50)->withQueryString();
         $employees = Employee::where('status', 'active')->orderBy('name')->get();
+        $allowedBreak = (int) AttendanceSetting::getValue('allowed_break_minutes', 30);
 
-        return view('admin.attendance.report', compact('logs', 'month', 'employees', 'employeeId'));
+        return view('admin.attendance.report', compact('logs', 'month', 'employees', 'employeeId', 'allowedBreak'));
     }
 
     public function exportAttendance(Request $request)

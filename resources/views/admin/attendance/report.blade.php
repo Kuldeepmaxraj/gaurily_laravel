@@ -89,8 +89,14 @@
                         <th>Shift</th>
                         <th>Clock In</th>
                         <th>Clock Out</th>
-                        <th>Break</th>
-                        <th>Net Hrs</th>
+                        <th>
+                            Break
+                            <span class="d-block fw-normal text-muted" style="font-size:10px;text-transform:none;letter-spacing:0;">{{ $allowedBreak }}m free</span>
+                        </th>
+                        <th>
+                            Net Hrs
+                            <span class="d-block fw-normal text-muted" style="font-size:10px;text-transform:none;letter-spacing:0;">actual work time</span>
+                        </th>
                         <th>Status</th>
                         <th>Late</th>
                         <th>Work Logs</th>
@@ -107,8 +113,18 @@
                         <td class="align-middle small">{{ $log->shift?->name ?? '—' }}</td>
                         <td class="align-middle fw-medium small">{{ $log->login_time?->format('h:i A') ?? '—' }}</td>
                         <td class="align-middle fw-medium small">{{ $log->logout_time?->format('h:i A') ?? '—' }}</td>
-                        <td class="align-middle small text-muted">{{ $log->total_break_minutes }}m</td>
-                        <td class="align-middle fw-semibold small">{{ $log->net_hours ? floor($log->net_hours).'h '.round(($log->net_hours - floor($log->net_hours)) * 60).'m' : '—' }}</td>
+                        <td class="align-middle small">
+                            @php $excess = max(0, $log->total_break_minutes - $allowedBreak); @endphp
+                            <span class="{{ $excess > 0 ? 'text-danger fw-semibold' : 'text-muted' }}">
+                                {{ $log->total_break_minutes }}m
+                            </span>
+                            @if($excess > 0)
+                                <span class="d-block text-danger" style="font-size:10px;">−{{ $excess }}m deducted</span>
+                            @endif
+                        </td>
+                        <td class="align-middle fw-semibold small">
+                            {{ $log->net_hours ? floor($log->net_hours).'h '.round(($log->net_hours - floor($log->net_hours)) * 60).'m' : '—' }}
+                        </td>
                         <td class="align-middle">
                             @php
                                 $statusColor = match($log->status ?? '') {
