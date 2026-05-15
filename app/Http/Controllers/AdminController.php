@@ -258,18 +258,18 @@ class AdminController extends Controller
     {
         $data = $request->validate([
             'login_time'  => 'required|date_format:H:i',
-            'logout_time' => 'nullable|date_format:H:i',
+            'logout_time' => 'nullable|date',
             'notes'       => 'nullable|string|max:500',
             'breaks'      => 'nullable|array',
             'breaks.*.id'          => 'nullable|integer|exists:attendance_breaks,id',
-            'breaks.*.break_start' => 'required|date_format:H:i',
-            'breaks.*.break_end'   => 'nullable|date_format:H:i',
+            'breaks.*.break_start' => 'required|date',
+            'breaks.*.break_end'   => 'nullable|date',
         ]);
 
         $date = $log->attendance_date->format('Y-m-d');
 
         $log->login_time  = $date . ' ' . $data['login_time'] . ':00';
-        $log->logout_time = $data['logout_time'] ? $date . ' ' . $data['logout_time'] . ':00' : null;
+        $log->logout_time = !empty($data['logout_time']) ? \Carbon\Carbon::parse($data['logout_time']) : null;
         $log->notes       = $data['notes'] ?? $log->notes;
         $log->save();
 
@@ -280,9 +280,9 @@ class AdminController extends Controller
             $log->breaks()->whereNotIn('id', $submittedIds)->delete();
 
             foreach ($data['breaks'] as $breakData) {
-                $start = $date . ' ' . $breakData['break_start'] . ':00';
-                $end   = !empty($breakData['break_end']) ? $date . ' ' . $breakData['break_end'] . ':00' : null;
-                $duration = $end ? (int) \Carbon\Carbon::parse($start)->diffInMinutes(\Carbon\Carbon::parse($end)) : 0;
+                $start    = \Carbon\Carbon::parse($breakData['break_start']);
+                $end      = !empty($breakData['break_end']) ? \Carbon\Carbon::parse($breakData['break_end']) : null;
+                $duration = $end ? (int) $start->diffInMinutes($end) : 0;
 
                 if (!empty($breakData['id'])) {
                     $log->breaks()->where('id', $breakData['id'])->update([

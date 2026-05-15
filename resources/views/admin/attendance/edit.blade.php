@@ -34,10 +34,10 @@
                             @error('login_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Clock Out Time</label>
-                            <input type="time" name="logout_time" class="form-control @error('logout_time') is-invalid @enderror"
-                                   value="{{ old('logout_time', $log->logout_time?->format('H:i')) }}">
-                            <div class="form-text">Leave empty if employee hasn't clocked out yet.</div>
+                            <label class="form-label">Clock Out <span class="text-muted small">(date &amp; time)</span></label>
+                            <input type="datetime-local" name="logout_time" class="form-control @error('logout_time') is-invalid @enderror"
+                                   value="{{ old('logout_time', $log->logout_time?->format('Y-m-d\TH:i')) }}">
+                            <div class="form-text">Leave empty if employee hasn't clocked out yet. For overnight shifts, pick the next day's date.</div>
                             @error('logout_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
@@ -61,15 +61,15 @@
                             <div class="row g-2 align-items-end">
                                 <div class="col-5">
                                     <label class="form-label small fw-medium">Break Start</label>
-                                    <input type="time" name="breaks[{{ $i }}][break_start]"
+                                    <input type="datetime-local" name="breaks[{{ $i }}][break_start]"
                                            class="form-control form-control-sm"
-                                           value="{{ $break->break_start?->format('H:i') }}" required>
+                                           value="{{ $break->break_start?->format('Y-m-d\TH:i') }}" required>
                                 </div>
                                 <div class="col-5">
                                     <label class="form-label small fw-medium">Break End</label>
-                                    <input type="time" name="breaks[{{ $i }}][break_end]"
+                                    <input type="datetime-local" name="breaks[{{ $i }}][break_end]"
                                            class="form-control form-control-sm"
-                                           value="{{ $break->break_end?->format('H:i') }}">
+                                           value="{{ $break->break_end?->format('Y-m-d\TH:i') }}">
                                     <div class="form-text" style="font-size:10px;">Empty = break still ongoing</div>
                                 </div>
                                 <div class="col-2">
@@ -154,6 +154,7 @@
 @push('scripts')
 <script>
     let breakIndex = {{ $log->breaks->count() }};
+    const attendanceDate = "{{ $log->attendance_date->format('Y-m-d') }}";
     const container = document.getElementById('breaksContainer');
     const noMsg     = document.getElementById('noBreaksMsg');
 
@@ -166,11 +167,11 @@
             <div class="row g-2 align-items-end">
                 <div class="col-5">
                     <label class="form-label small fw-medium">Break Start</label>
-                    <input type="time" name="breaks[${breakIndex}][break_start]" class="form-control form-control-sm" required>
+                    <input type="datetime-local" name="breaks[${breakIndex}][break_start]" class="form-control form-control-sm" value="${attendanceDate}T" required>
                 </div>
                 <div class="col-5">
                     <label class="form-label small fw-medium">Break End</label>
-                    <input type="time" name="breaks[${breakIndex}][break_end]" class="form-control form-control-sm">
+                    <input type="datetime-local" name="breaks[${breakIndex}][break_end]" class="form-control form-control-sm">
                     <div class="form-text" style="font-size:10px;">Empty = break still ongoing</div>
                 </div>
                 <div class="col-2">
