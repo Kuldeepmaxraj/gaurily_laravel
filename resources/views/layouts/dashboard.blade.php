@@ -212,6 +212,10 @@
     <a href="{{ route('employee.profile') }}" class="{{ request()->routeIs('employee.profile*') ? 'active' : '' }}">
         <i class="bi bi-person"></i> My Profile
     </a>
+    <a href="{{ route('employee.chat.index') }}" class="{{ request()->routeIs('employee.chat*') ? 'active' : '' }}">
+        <i class="bi bi-chat-dots"></i> Chat
+        <span id="chatNavBadge" class="ms-auto" style="background:#0066FF;color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 6px;min-width:18px;text-align:center;display:none;"></span>
+    </a>
 </nav>
 
 {{-- Topbar --}}
@@ -288,5 +292,25 @@
     }
 </script>
 @stack('scripts')
+@auth
+<script>
+// Live unread chat badge on all pages (polls every 30s)
+(function() {
+    const badge = document.getElementById('chatNavBadge');
+    if (!badge) return;
+    function fetchUnread() {
+        fetch('/dashboard/chat/unread-total', {
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+        }).then(r => r.json()).then(d => {
+            const n = d.total || 0;
+            badge.textContent = n > 0 ? (n > 99 ? '99+' : n) : '';
+            badge.style.display = n > 0 ? 'inline-flex' : 'none';
+        }).catch(() => {});
+    }
+    fetchUnread();
+    setInterval(fetchUnread, 30000);
+})();
+</script>
+@endauth
 </body>
 </html>

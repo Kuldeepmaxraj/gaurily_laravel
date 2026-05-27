@@ -11,6 +11,7 @@ use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\WorkLogController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\Admin\BlogController as AdminBlogController;
+use App\Http\Controllers\ChatController;
 
 // ─── Public website pages ────────────────────────────────────────────────────
 Route::get('/',          fn () => view('pages.index'))->name('home');
@@ -52,6 +53,22 @@ Route::middleware('auth')->prefix('dashboard')->name('employee.')->group(functio
 
     // Holidays (read-only)
     Route::get('/holidays',           [EmployeeDashboardController::class, 'holidays'])->name('holidays');
+
+    // Chat
+    Route::prefix('chat')->name('chat.')->group(function () {
+        Route::get('/',                                [ChatController::class, 'index'])->name('index');
+        Route::get('/rooms',                           [ChatController::class, 'rooms'])->name('rooms');
+        Route::get('/online',                          [ChatController::class, 'online'])->name('online');
+        Route::get('/unread-total',                    [ChatController::class, 'unreadTotal'])->name('unread-total');
+        Route::post('/ping',                           [ChatController::class, 'ping'])->name('ping');
+        Route::post('/direct',                         [ChatController::class, 'createDirect'])->name('direct');
+        Route::post('/group',                          [ChatController::class, 'createGroup'])->name('group');
+        Route::get('/rooms/{room}/messages',           [ChatController::class, 'messages'])->name('messages');
+        Route::post('/rooms/{room}/messages',          [ChatController::class, 'send'])->name('send');
+        Route::post('/rooms/{room}/mark-read',         [ChatController::class, 'markRead'])->name('mark-read');
+        Route::post('/rooms/{room}/members',           [ChatController::class, 'addMember'])->name('add-member');
+        Route::delete('/rooms/{room}/members/{target}',[ChatController::class, 'removeMember'])->name('remove-member');
+    });
 });
 
 // ─── Admin / HR ───────────────────────────────────────────────────────────────

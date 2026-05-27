@@ -14,6 +14,7 @@ class Employee extends Authenticatable
         'employee_code', 'name', 'email', 'password',
         'phone', 'role_id', 'team_id', 'shift_id',
         'designation', 'date_of_joining', 'status', 'profile_photo', 'avatar',
+        'last_seen_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -23,6 +24,7 @@ class Employee extends Authenticatable
         return [
             'date_of_joining' => 'date',
             'password'        => 'hashed',
+            'last_seen_at'    => 'datetime',
         ];
     }
 
@@ -102,5 +104,15 @@ class Employee extends Authenticatable
             ->whereHas('leaveType', fn ($q) => $q->where('code', $leaveTypeCode))
             ->where('year', now()->year)
             ->first();
+    }
+
+    public function chatRoomMembers()
+    {
+        return $this->hasMany(ChatRoomMember::class);
+    }
+
+    public function isOnline(): bool
+    {
+        return $this->last_seen_at && $this->last_seen_at->gte(now()->subMinutes(5));
     }
 }
