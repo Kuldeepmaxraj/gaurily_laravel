@@ -118,7 +118,7 @@ class ChatController extends Controller
         ]);
     }
 
-    /** Send a message to a room. */
+    /** Send a text message to a room. */
     public function send(Request $request, ChatRoom $room)
     {
         $employee = $this->me();
@@ -132,15 +132,50 @@ class ChatController extends Controller
             'body'         => $data['body'],
         ]);
 
-        // Mark sender as up-to-date
-        ChatRoomMember::where('chat_room_id', $room->id)
-            ->where('employee_id', $employee->id)
-            ->update(['last_read_at' => now()]);
-
-        $room->touch();
+        $this->afterSend($room, $employee);
         $message->load('employee');
 
         return response()->json($this->formatMessage($message, $employee), 201);
+    }
+
+    /** Upload a file/image attachment and create a chat message. */
+    public function sendFile(Request $request, ChatRoom $room)
+    {
+        $employee = $this->me();
+        $this->requireMember($room, $employee);
+
+        $request->validate([
+            'file' => 'required|file|max:20480', // 20 MB
+            'body' => 'nullable|string|max:500',
+        ]);
+
+        $file  = $request->file('file');
+        $mime  = $file->getMimeType();
+        $origName = $file->getClientOriginalName();
+        $path  = $file->store('chat-attachments', 'public');
+
+        $message = ChatMessage::create([
+            'chat_room_id'    => $room->id,
+            'employee_id'     => $employee->id,
+            'body'            => $request->input('body', ''),
+            'attachment_path' => $path,
+            'attachment_name' => $origName,
+            'attachment_mime' => $mime,
+            'attachment_size' => $file->getSize(),
+        ]);
+
+        $this->afterSend($room, $employee);
+        $message->load('employee');
+
+        return response()->json($this->formatMessage($message, $employee), 201);
+    }
+
+    private function afterSend(ChatRoom $room, Employee $employee): void
+    {
+        ChatRoomMember::where('chat_room_id', $room->id)
+            ->where('employee_id', $employee->id)
+            ->update(['last_read_at' => now()]);
+        $room->touch();
     }
 
     /** Find or create a direct DM room between the current user and another. */
@@ -323,15 +358,27 @@ class ChatController extends Controller
 
     private function formatMessage(ChatMessage $m, Employee $employee): array
     {
+        $attachment = null;
+        if ($m->attachment_path) {
+            $attachment = [
+                'url'   => Storage::url($m->attachment_path),
+                'name'  => $m->attachment_name,
+                'mime'  => $m->attachment_mime,
+                'size'  => $m->attachment_size,
+                'is_image' => str_starts_with($m->attachment_mime ?? '', 'image/'),
+            ];
+        }
+
         return [
-            'id'     => $m->id,
-            'body'   => $m->body,
-            'mine'   => $m->employee_id === $employee->id,
-            'sender' => $m->employee?->name,
-            'initials' => strtoupper(substr($m->employee?->name ?? 'U', 0, 1)),
-            'avatar' => $m->employee?->avatar ? Storage::url($m->employee->avatar) : null,
-            'time'   => $m->created_at->format('h:i A'),
-            'date'   => $m->created_at->format('d M Y'),
+            'id'         => $m->id,
+            'body'       => $m->body,
+            'mine'       => $m->employee_id === $employee->id,
+            'sender'     => $m->employee?->name,
+            'initials'   => strtoupper(substr($m->employee?->name ?? 'U', 0, 1)),
+            'avatar'     => $m->employee?->avatar ? Storage::url($m->employee->avatar) : null,
+            'time'       => $m->created_at->format('h:i A'),
+            'date'       => $m->created_at->format('d M Y'),
+            'attachment' => $attachment,
         ];
     }
 }

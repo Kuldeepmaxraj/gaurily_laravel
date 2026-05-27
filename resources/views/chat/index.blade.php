@@ -106,10 +106,31 @@
     padding: 3px 10px 3px 6px; font-size: 12px;
 }
 
-@media(max-width: 767px) {
-    .chat-left { width: 240px; }
-    .chat-wrap { position: relative; }
+/* attachment styles */
+.msg-image { max-width: 260px; max-height: 200px; border-radius: 10px; cursor: zoom-in; display: block; margin-top: 4px; }
+.msg-file-card {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,.15); border-radius: 10px;
+    padding: 8px 12px; margin-top: 4px; text-decoration: none;
+    max-width: 260px;
 }
+.msg-row.theirs .msg-file-card { background: #f3f4f6; }
+.msg-file-icon { font-size: 22px; flex-shrink: 0; }
+.msg-file-info { min-width: 0; }
+.msg-file-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+.msg-file-size { font-size: 10.5px; opacity: .7; }
+/* file preview in input area */
+.file-preview-bar {
+    display: flex; align-items: center; gap: 10px;
+    background: #eff6ff; border-top: 1px solid #dbeafe;
+    padding: 8px 16px; flex-shrink: 0;
+}
+.file-preview-thumb { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+.file-preview-icon { width: 40px; height: 40px; background: #dbeafe; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+/* image lightbox */
+.chat-lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 9999; align-items: center; justify-content: center; cursor: zoom-out; }
+.chat-lightbox.show { display: flex; }
+.chat-lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 4px 40px rgba(0,0,0,.5); }
 </style>
 @endpush
 
@@ -168,7 +189,24 @@
                 <div class="chat-empty"><i class="bi bi-arrow-repeat spin" style="font-size:22px;"></i></div>
             </div>
 
+            {{-- File preview bar (shown when a file is selected) --}}
+            <div class="file-preview-bar" id="filePreviewBar" style="display:none;">
+                <div id="filePreviewThumb"></div>
+                <div style="flex:1;min-width:0;">
+                    <div id="filePreviewName" style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+                    <div id="filePreviewSize" style="font-size:11px;color:#6b7280;"></div>
+                </div>
+                <button type="button" class="btn btn-sm btn-link text-danger p-0" id="cancelFileBtn" title="Remove file">
+                    <i class="bi bi-x-circle-fill" style="font-size:18px;"></i>
+                </button>
+            </div>
+
             <div class="chat-input-area">
+                <input type="file" id="fileInput" style="display:none;" accept="*/*">
+                <button type="button" class="btn btn-outline-secondary rounded-pill" id="attachBtn"
+                        style="height:38px;width:38px;padding:0;flex-shrink:0;" title="Send file or image">
+                    <i class="bi bi-paperclip" style="font-size:16px;"></i>
+                </button>
                 <textarea id="msgInput" placeholder="Type a message… (Enter to send, Shift+Enter for new line)" rows="1"></textarea>
                 <button class="btn btn-primary rounded-pill px-3" id="sendBtn" style="height:38px;">
                     <i class="bi bi-send-fill"></i>
@@ -176,6 +214,11 @@
             </div>
         </div>
     </div>
+</div>
+
+{{-- Image lightbox --}}
+<div class="chat-lightbox" id="chatLightbox">
+    <img src="" id="lightboxImg" alt="">
 </div>
 
 {{-- ─── New Group Modal ──────────────────────────────────────────────────── --}}
@@ -276,6 +319,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('createGroupBtn').addEventListener('click', createGroup);
     document.getElementById('addMemberBtn').addEventListener('click', addMember);
     document.getElementById('roomSearch').addEventListener('input', filterRooms);
+
+    // File attachment
+    document.getElementById('attachBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+    document.getElementById('fileInput').addEventListener('change', onFileSelected);
+    document.getElementById('cancelFileBtn').addEventListener('click', clearFile);
+
+    // Lightbox close
+    document.getElementById('chatLightbox').addEventListener('click', () => {
+        document.getElementById('chatLightbox').classList.remove('show');
+    });
 });
 
 // ─── Rooms ────────────────────────────────────────────────────────────────────
@@ -414,13 +467,40 @@ function renderMessages(messages, append) {
             ? `<img src="${esc(m.avatar)}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
             : `<div class="chat-avatar" style="width:32px;height:32px;font-size:12px;flex-shrink:0;">${esc(m.initials)}</div>`;
 
+        // Build attachment HTML
+        let attachHtml = '';
+        if (m.attachment) {
+            const a = m.attachment;
+            if (a.is_image) {
+                attachHtml = `<img src="${esc(a.url)}" class="msg-image" onclick="openLightbox('${esc(a.url)}')" alt="${esc(a.name)}">` ;
+            } else {
+                const icon = fileIcon(a.mime);
+                const size = formatBytes(a.size);
+                attachHtml = `<a href="${esc(a.url)}" class="msg-file-card" target="_blank" download="${esc(a.name)}">
+                    <span class="msg-file-icon">${icon}</span>
+                    <div class="msg-file-info">
+                        <div class="msg-file-name">${esc(a.name)}</div>
+                        <div class="msg-file-size">${size}</div>
+                    </div>
+                    <i class="bi bi-download" style="flex-shrink:0;opacity:.6;"></i>
+                </a>`;
+            }
+        }
+
+        const bodyHtml = m.body ? `<div class="msg-bubble">${esc(m.body).replace(/\n/g, '<br>')}</div>` : '';
+        const bubbleContent = m.body && m.attachment
+            ? `<div class="msg-bubble">${esc(m.body).replace(/\n/g, '<br>')}${attachHtml}</div>`
+            : m.attachment
+                ? `<div class="msg-bubble" style="padding:6px;background:${mine ? '#0066FF' : '#fff'}">${attachHtml}</div>`
+                : bodyHtml;
+
         container.insertAdjacentHTML('beforeend', `
             <div class="msg-row ${mine ? 'mine' : 'theirs'}">
                 ${!mine ? avatarHtml : ''}
                 <div>
                     ${!mine ? `<div class="msg-sender-name" style="padding-left:0;">${esc(m.sender)}</div>` : ''}
                     <div style="display:flex;align-items:flex-end;gap:4px;${mine ? 'flex-direction:row-reverse;' : ''}">
-                        <div class="msg-bubble">${esc(m.body).replace(/\n/g, '<br>')}</div>
+                        ${bubbleContent}
                         <span class="msg-meta">${esc(m.time)}</span>
                     </div>
                 </div>
@@ -435,15 +515,75 @@ function scrollBottom() {
 }
 
 // ─── Send ─────────────────────────────────────────────────────────────────────
+let selectedFile = null;
+
+function onFileSelected() {
+    const input = document.getElementById('fileInput');
+    selectedFile = input.files[0] || null;
+    if (!selectedFile) return;
+
+    const bar   = document.getElementById('filePreviewBar');
+    const thumb = document.getElementById('filePreviewThumb');
+    const name  = document.getElementById('filePreviewName');
+    const size  = document.getElementById('filePreviewSize');
+
+    name.textContent = selectedFile.name;
+    size.textContent = formatBytes(selectedFile.size);
+
+    if (selectedFile.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = e => { thumb.innerHTML = `<img src="${e.target.result}" class="file-preview-thumb">`; };
+        reader.readAsDataURL(selectedFile);
+    } else {
+        thumb.innerHTML = `<div class="file-preview-icon">${fileIcon(selectedFile.type)}</div>`;
+    }
+    bar.style.display = 'flex';
+}
+
+function clearFile() {
+    selectedFile = null;
+    document.getElementById('fileInput').value = '';
+    document.getElementById('filePreviewBar').style.display = 'none';
+    document.getElementById('filePreviewThumb').innerHTML = '';
+}
+
 function sendMessage() {
     if (!currentRoom) return;
     const input = document.getElementById('msgInput');
     const body  = input.value.trim();
+
+    if (selectedFile) {
+        uploadFile(selectedFile, body);
+        input.value = '';
+        input.style.height = 'auto';
+        clearFile();
+        return;
+    }
+
     if (!body) return;
     input.value = '';
     input.style.height = 'auto';
 
     apiPost(`/dashboard/chat/rooms/${currentRoom.id}/messages`, { body }).then(msg => {
+        if (msg.id) {
+            renderMessages([msg], true);
+            lastMessageId = msg.id;
+            scrollBottom();
+        }
+    });
+}
+
+function uploadFile(file, caption) {
+    if (!currentRoom) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    if (caption) fd.append('body', caption);
+
+    fetch(`/dashboard/chat/rooms/${currentRoom.id}/files`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+        body: fd,
+    }).then(r => r.json()).then(msg => {
         if (msg.id) {
             renderMessages([msg], true);
             lastMessageId = msg.id;
@@ -588,6 +728,30 @@ function apiDelete(url) {
 function esc(str) {
     if (str == null) return '';
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatBytes(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function fileIcon(mime) {
+    if (!mime) return '📎';
+    if (mime.startsWith('image/')) return '🖼️';
+    if (mime.startsWith('video/')) return '🎬';
+    if (mime.startsWith('audio/')) return '🎵';
+    if (mime.includes('pdf'))      return '📄';
+    if (mime.includes('word') || mime.includes('document')) return '📝';
+    if (mime.includes('excel') || mime.includes('spreadsheet') || mime.includes('csv')) return '📊';
+    if (mime.includes('zip') || mime.includes('rar') || mime.includes('7z')) return '🗜️';
+    return '📎';
+}
+
+function openLightbox(url) {
+    document.getElementById('lightboxImg').src = url;
+    document.getElementById('chatLightbox').classList.add('show');
 }
 </script>
 <style>

@@ -65,6 +65,7 @@ Route::middleware('auth')->prefix('dashboard')->name('employee.')->group(functio
         Route::post('/group',                          [ChatController::class, 'createGroup'])->name('group');
         Route::get('/rooms/{room}/messages',           [ChatController::class, 'messages'])->name('messages');
         Route::post('/rooms/{room}/messages',          [ChatController::class, 'send'])->name('send');
+        Route::post('/rooms/{room}/files',             [ChatController::class, 'sendFile'])->name('send-file');
         Route::post('/rooms/{room}/mark-read',         [ChatController::class, 'markRead'])->name('mark-read');
         Route::post('/rooms/{room}/members',           [ChatController::class, 'addMember'])->name('add-member');
         Route::delete('/rooms/{room}/members/{target}',[ChatController::class, 'removeMember'])->name('remove-member');
