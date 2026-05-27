@@ -295,6 +295,25 @@ let onlineTimer      = null;
 let allRooms         = [];
 let currentMembers   = [];
 let currentIsAdmin   = false;
+let audioCtx         = null;
+
+// ─── Notification sound (Web Audio API — no external file needed) ─────────────
+function playPing() {
+    try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc  = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.4);
+    } catch (e) { /* audio not available */ }
+}
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -328,6 +347,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Lightbox close
     document.getElementById('chatLightbox').addEventListener('click', () => {
         document.getElementById('chatLightbox').classList.remove('show');
+    });
+
+    // Resume polling when tab becomes visible again
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && currentRoom) {
+            pollMessages(currentRoom.id);
+        }
     });
 });
 
@@ -435,15 +461,24 @@ function loadMessages(roomId) {
 }
 
 function pollMessages(roomId) {
-    if (document.hidden) return; // don't poll when tab is hidden
-    apiFetch(`/dashboard/chat/rooms/${roomId}/messages?after=${lastMessageId}`).then(data => {
+    if (document.hidden) return;
+    fetch(`/dashboard/chat/rooms/${roomId}/messages?after=${lastMessageId}`, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+    })
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(data => {
         if (data.messages && data.messages.length > 0) {
+            // Only play sound & scroll if at least one message is from someone else
+            const hasIncoming = data.messages.some(m => !m.mine);
             renderMessages(data.messages, true);
             lastMessageId = data.last_id;
             markRead(roomId);
             scrollBottom();
+            if (hasIncoming) playPing();
         }
-    });
+    })
+    .catch(() => {}); // network errors: silently retry on next interval
 }
 
 function renderMessages(messages, append) {
@@ -706,13 +741,16 @@ function updateSidebarBadge(count) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function apiFetch(url) {
     return fetch(url, {
-        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF }
-    }).then(r => r.json()).catch(() => ({}));
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+    }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .catch(() => ({}));
 }
 
 function apiPost(url, body = {}) {
     return fetch(url, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
         body: JSON.stringify(body),
     }).then(r => r.json()).catch(() => ({}));
@@ -721,6 +759,7 @@ function apiPost(url, body = {}) {
 function apiDelete(url) {
     return fetch(url, {
         method: 'DELETE',
+        credentials: 'same-origin',
         headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
     }).then(r => r.json()).catch(() => ({}));
 }
