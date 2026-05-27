@@ -183,7 +183,38 @@ class AdminController extends Controller
         $employees = Employee::where('status', 'active')->orderBy('name')->get();
         $allowedBreak = (int) AttendanceSetting::getValue('allowed_break_minutes', 30);
 
-        return view('admin.attendance.report', compact('logs', 'month', 'employees', 'employeeId', 'allowedBreak'));
+        // Unpaginated data for summaries
+        $allQuery = AttendanceLog::with('employee')
+            ->whereYear('attendance_date', $year)
+            ->whereMonth('attendance_date', $mon);
+        if ($employeeId) {
+            $allQuery->where('employee_id', $employeeId);
+        }
+        $allLogs = $allQuery->orderBy('attendance_date')->get();
+
+        // Monthly summary per employee
+        $monthlySummary = $allLogs->groupBy('employee_id')->map(fn ($el) => [
+            'name'        => $el->first()->employee?->name,
+            'code'        => $el->first()->employee?->employee_code,
+            'total_hours' => round($el->sum('net_hours'), 2),
+            'present'     => $el->where('status', 'present')->count(),
+            'half_day'    => $el->where('status', 'half_day')->count(),
+            'absent'      => $el->where('status', 'absent')->count(),
+            'days'        => $el->count(),
+        ]);
+
+        // Weekly breakdown
+        $weeklyTotals = $allLogs->groupBy(fn ($log) => $log->attendance_date->format('Y-W'))
+            ->map(fn ($wl) => [
+                'week_label'           => $wl->min('attendance_date')->format('d M') . ' – ' . $wl->max('attendance_date')->format('d M'),
+                'total_hours'          => round($wl->sum('net_hours'), 2),
+                'employee_breakdown'   => $wl->groupBy('employee_id')->map(fn ($el) => round($el->sum('net_hours'), 2)),
+            ]);
+
+        return view('admin.attendance.report', compact(
+            'logs', 'month', 'employees', 'employeeId', 'allowedBreak',
+            'monthlySummary', 'weeklyTotals'
+        ));
     }
 
     public function exportAttendance(Request $request)
@@ -200,7 +231,7 @@ class AdminController extends Controller
             $query->where('employee_id', $employeeId);
         }
 
-        $logs = $query->orderBy('attendance_date')->orderBy('employee_id')->get();
+        $logs = $query->orderBy('employee_id')->orderBy('attendance_date')->get();
 
         $filename = 'attendance_' . $month . ($employeeId ? '_emp' . $employeeId : '') . '.csv';
 
@@ -220,23 +251,67 @@ class AdminController extends Controller
                 'Status', 'Late', 'Work Log Comments',
             ]);
 
-            foreach ($logs as $log) {
-                $comments = $log->workLogs
-                    ->map(fn ($w) => '[' . $w->created_at->format('h:i A') . '] ' . $w->comment)
-                    ->implode(' | ');
+            $grouped = $logs->groupBy('employee_id');
+            $grandTotal = 0;
+
+            foreach ($grouped as $empLogs) {
+                $empName  = $empLogs->first()->employee?->name ?? '';
+                $empCode  = $empLogs->first()->employee?->employee_code ?? '';
+                $empTotal = 0;
+
+                $byWeek = $empLogs->groupBy(fn ($log) => $log->attendance_date->format('Y-W'));
+
+                foreach ($byWeek as $weekLogs) {
+                    $weekStart = $weekLogs->min('attendance_date')->format('d M');
+                    $weekEnd   = $weekLogs->max('attendance_date')->format('d M Y');
+                    $weekHours = 0;
+
+                    foreach ($weekLogs as $log) {
+                        $comments = $log->workLogs
+                            ->map(fn ($w) => '[' . $w->created_at->format('h:i A') . '] ' . $w->comment)
+                            ->implode(' | ');
+
+                        fputcsv($file, [
+                            $log->attendance_date->format('d M Y'),
+                            $log->employee?->employee_code ?? '',
+                            $log->employee?->name ?? '',
+                            $log->shift?->name ?? '',
+                            $log->login_time?->format('h:i A') ?? '',
+                            $log->logout_time?->format('h:i A') ?? '',
+                            $log->total_break_minutes ?? 0,
+                            $log->net_hours ? number_format($log->net_hours, 2) : '',
+                            ucfirst(str_replace('_', ' ', $log->status ?? '')),
+                            $log->is_late ? 'Yes' : 'No',
+                            $comments,
+                        ]);
+                        $weekHours += (float) ($log->net_hours ?? 0);
+                    }
+
+                    $empTotal   += $weekHours;
+                    $grandTotal += $weekHours;
+                    fputcsv($file, [
+                        '', '', '↳ Week ' . $weekStart . ' – ' . $weekEnd,
+                        '', '', '', '',
+                        number_format($weekHours, 2) . ' hrs',
+                        '', '', '',
+                    ]);
+                }
 
                 fputcsv($file, [
-                    $log->attendance_date->format('d M Y'),
-                    $log->employee?->employee_code ?? '',
-                    $log->employee?->name ?? '',
-                    $log->shift?->name ?? '',
-                    $log->login_time?->format('h:i A') ?? '',
-                    $log->logout_time?->format('h:i A') ?? '',
-                    $log->total_break_minutes ?? 0,
-                    $log->net_hours ? number_format($log->net_hours, 2) : '',
-                    ucfirst(str_replace('_', ' ', $log->status ?? '')),
-                    $log->is_late ? 'Yes' : 'No',
-                    $comments,
+                    '', $empCode, '★ MONTHLY TOTAL: ' . $empName,
+                    '', '', '', '',
+                    number_format($empTotal, 2) . ' hrs',
+                    '', '', '',
+                ]);
+                fputcsv($file, []); // blank separator
+            }
+
+            if ($grouped->count() > 1) {
+                fputcsv($file, [
+                    '', '', '▶ GRAND TOTAL (all employees)',
+                    '', '', '', '',
+                    number_format($grandTotal, 2) . ' hrs',
+                    '', '', '',
                 ]);
             }
 
@@ -257,6 +332,7 @@ class AdminController extends Controller
     public function updateAttendance(Request $request, AttendanceLog $log)
     {
         $data = $request->validate([
+            'attendance_date' => 'required|date',
             'login_time'  => 'required|date_format:H:i',
             'logout_time' => 'nullable|date',
             'notes'       => 'nullable|string|max:500',
@@ -266,8 +342,9 @@ class AdminController extends Controller
             'breaks.*.break_end'   => 'nullable|date',
         ]);
 
-        $date = $log->attendance_date->format('Y-m-d');
+        $date = \Carbon\Carbon::parse($data['attendance_date'])->format('Y-m-d');
 
+        $log->attendance_date = $date;
         $log->login_time  = $date . ' ' . $data['login_time'] . ':00';
         $log->logout_time = !empty($data['logout_time']) ? \Carbon\Carbon::parse($data['logout_time']) : null;
         $log->notes       = $data['notes'] ?? $log->notes;

@@ -27,17 +27,24 @@
                 <div class="card-body p-4">
                     <h6 class="fw-bold mb-3"><i class="bi bi-clock me-2 text-primary"></i>Clock In / Out</h6>
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label class="form-label">Attendance Date <span class="text-danger">*</span></label>
+                            <input type="date" name="attendance_date" class="form-control @error('attendance_date') is-invalid @enderror"
+                                   value="{{ old('attendance_date', $log->attendance_date->format('Y-m-d')) }}" required>
+                            <div class="form-text">Change if entry was created on the wrong day.</div>
+                            @error('attendance_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label">Clock In Time <span class="text-danger">*</span></label>
                             <input type="time" name="login_time" class="form-control @error('login_time') is-invalid @enderror"
                                    value="{{ old('login_time', $log->login_time?->format('H:i')) }}" required>
                             @error('login_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">Clock Out <span class="text-muted small">(date &amp; time)</span></label>
                             <input type="datetime-local" name="logout_time" class="form-control @error('logout_time') is-invalid @enderror"
                                    value="{{ old('logout_time', $log->logout_time?->format('Y-m-d\TH:i')) }}">
-                            <div class="form-text">Leave empty if employee hasn't clocked out yet. For overnight shifts, pick the next day's date.</div>
+                            <div class="form-text">For overnight shifts, pick the next day's date.</div>
                             @error('logout_time')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>

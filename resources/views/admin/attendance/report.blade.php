@@ -77,6 +77,111 @@
     </span>
 </div>
 
+@if($monthlySummary->count())
+{{-- Monthly Summary --}}
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
+    <div class="card-body p-0">
+        <div class="px-4 py-3 border-bottom d-flex align-items-center justify-content-between">
+            <h6 class="fw-bold mb-0"><i class="bi bi-bar-chart-fill me-2 text-primary"></i>Monthly Summary &mdash; {{ \Carbon\Carbon::createFromFormat('Y-m', $month)->format('F Y') }}</h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0" style="font-size:13px;">
+                <thead class="table-light">
+                    <tr>
+                        <th>Employee</th>
+                        <th>Total Hours</th>
+                        <th>Days Logged</th>
+                        <th>Present</th>
+                        <th>Half Day</th>
+                        <th>Absent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($monthlySummary as $summary)
+                    <tr>
+                        <td class="fw-semibold">{{ $summary['name'] }} <span class="text-muted fw-normal">{{ $summary['code'] }}</span></td>
+                        <td class="fw-bold text-primary">
+                            {{ floor($summary['total_hours']) }}h {{ round(($summary['total_hours'] - floor($summary['total_hours'])) * 60) }}m
+                        </td>
+                        <td>{{ $summary['days'] }}</td>
+                        <td><span class="badge bg-success rounded-pill">{{ $summary['present'] }}</span></td>
+                        <td><span class="badge bg-warning text-dark rounded-pill">{{ $summary['half_day'] }}</span></td>
+                        <td><span class="badge bg-danger rounded-pill">{{ $summary['absent'] }}</span></td>
+                    </tr>
+                    @endforeach
+                    @if($monthlySummary->count() > 1)
+                    <tr class="table-light fw-bold">
+                        <td>Grand Total</td>
+                        <td class="text-primary">
+                            @php $gt = $monthlySummary->sum('total_hours'); @endphp
+                            {{ floor($gt) }}h {{ round(($gt - floor($gt)) * 60) }}m
+                        </td>
+                        <td>{{ $monthlySummary->sum('days') }}</td>
+                        <td>{{ $monthlySummary->sum('present') }}</td>
+                        <td>{{ $monthlySummary->sum('half_day') }}</td>
+                        <td>{{ $monthlySummary->sum('absent') }}</td>
+                    </tr>
+                    @endif
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{-- Weekly Breakdown --}}
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
+    <div class="card-body p-0">
+        <div class="px-4 py-3 border-bottom">
+            <h6 class="fw-bold mb-0"><i class="bi bi-calendar-week me-2 text-success"></i>Weekly Breakdown</h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0" style="font-size:13px;">
+                <thead class="table-light">
+                    <tr>
+                        <th>Week</th>
+                        @foreach($monthlySummary as $empId => $s)
+                            <th>{{ $s['name'] }}</th>
+                        @endforeach
+                        @if($monthlySummary->count() > 1)<th class="fw-bold">Week Total</th>@endif
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($weeklyTotals as $week)
+                    <tr>
+                        <td class="text-muted">{{ $week['week_label'] }}</td>
+                        @foreach($monthlySummary as $empId => $s)
+                            @php $h = $week['employee_breakdown'][$empId] ?? 0; @endphp
+                            <td class="fw-medium">
+                                @if($h > 0)
+                                    {{ floor($h) }}h {{ round(($h - floor($h)) * 60) }}m
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
+                            </td>
+                        @endforeach
+                        @if($monthlySummary->count() > 1)
+                        <td class="fw-bold">{{ floor($week['total_hours']) }}h {{ round(($week['total_hours'] - floor($week['total_hours'])) * 60) }}m</td>
+                        @endif
+                    </tr>
+                    @endforeach
+                    {{-- Weekly totals row --}}
+                    <tr class="table-light fw-bold">
+                        <td>Monthly Total</td>
+                        @foreach($monthlySummary as $summary)
+                            <td class="text-primary">{{ floor($summary['total_hours']) }}h {{ round(($summary['total_hours'] - floor($summary['total_hours'])) * 60) }}m</td>
+                        @endforeach
+                        @if($monthlySummary->count() > 1)
+                            @php $gt = $monthlySummary->sum('total_hours'); @endphp
+                            <td class="text-primary">{{ floor($gt) }}h {{ round(($gt - floor($gt)) * 60) }}m</td>
+                        @endif
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+@endif
+
 {{-- Table --}}
 <div class="card border-0 shadow-sm" style="border-radius:14px;">
     <div class="card-body p-0">
