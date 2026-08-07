@@ -74,12 +74,18 @@ class Employee extends Authenticatable
 
     public function hasRole(string $role): bool
     {
-        return $this->role?->name === $role;
+        return self::normalizeRoleName($this->role?->name) === self::normalizeRoleName($role);
+    }
+
+    public function hasAnyRole(array $roles): bool
+    {
+        $current = self::normalizeRoleName($this->role?->name);
+        return in_array($current, array_map([self::class, 'normalizeRoleName'], $roles), true);
     }
 
     public function isAdmin(): bool
     {
-        return in_array($this->role?->name, ['admin', 'hr']);
+        return $this->hasAnyRole(['admin', 'hr']);
     }
 
     public function todayAttendance()
@@ -114,5 +120,14 @@ class Employee extends Authenticatable
     public function isOnline(): bool
     {
         return $this->last_seen_at && $this->last_seen_at->gte(now()->subMinutes(5));
+    }
+
+    private static function normalizeRoleName(?string $role): string
+    {
+        if (!$role) {
+            return '';
+        }
+
+        return str_replace([' ', '-'], '_', strtolower(trim($role)));
     }
 }

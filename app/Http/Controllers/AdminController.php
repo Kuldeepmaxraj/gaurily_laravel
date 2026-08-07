@@ -26,42 +26,42 @@ class AdminController extends Controller
     public function dashboard()
     {
         $viewer = Auth::user()->loadMissing('role');
-        $role = $viewer->role?->name;
+        $isTeamLead = $viewer->hasRole('team_lead');
         $today = today();
 
         $teamEmployeeIds = null;
-        if ($role === 'team_lead') {
+        if ($isTeamLead) {
             $teamEmployeeIds = Employee::query()
                 ->when($viewer->team_id, fn ($q) => $q->where('team_id', $viewer->team_id), fn ($q) => $q->whereRaw('1 = 0'))
                 ->pluck('id');
         }
 
         $totalEmployees  = Employee::where('status', 'active')
-                            ->when($role === 'team_lead', fn ($q) => $q->whereIn('id', $teamEmployeeIds))
+                            ->when($isTeamLead, fn ($q) => $q->whereIn('id', $teamEmployeeIds))
                             ->count();
         $presentToday    = AttendanceLog::where('attendance_date', $today)
-                            ->when($role === 'team_lead', fn ($q) => $q->whereIn('employee_id', $teamEmployeeIds))
+                            ->when($isTeamLead, fn ($q) => $q->whereIn('employee_id', $teamEmployeeIds))
                             ->where('status', 'present')->count();
         $halfDayToday    = AttendanceLog::where('attendance_date', $today)
-                            ->when($role === 'team_lead', fn ($q) => $q->whereIn('employee_id', $teamEmployeeIds))
+                            ->when($isTeamLead, fn ($q) => $q->whereIn('employee_id', $teamEmployeeIds))
                             ->where('status', 'half_day')->count();
         $lateToday       = AttendanceLog::where('attendance_date', $today)
-                            ->when($role === 'team_lead', fn ($q) => $q->whereIn('employee_id', $teamEmployeeIds))
+                            ->when($isTeamLead, fn ($q) => $q->whereIn('employee_id', $teamEmployeeIds))
                             ->where('is_late', true)->count();
         $pendingLeaves   = LeaveRequest::where('status', 'pending')
-            ->when($role === 'team_lead', fn ($q) => $q->whereHas('employee', fn ($q2) => $q2->whereIn('id', $teamEmployeeIds)))
+            ->when($isTeamLead, fn ($q) => $q->whereHas('employee', fn ($q2) => $q2->whereIn('id', $teamEmployeeIds)))
             ->count();
 
         $recentAttendance = AttendanceLog::with('employee')
             ->where('attendance_date', $today)
-            ->when($role === 'team_lead', fn ($q) => $q->whereIn('employee_id', $teamEmployeeIds))
+            ->when($isTeamLead, fn ($q) => $q->whereIn('employee_id', $teamEmployeeIds))
             ->orderByDesc('login_time')
             ->limit(10)
             ->get();
 
         $pendingLeaveList = LeaveRequest::with(['employee', 'leaveType'])
             ->where('status', 'pending')
-            ->when($role === 'team_lead', fn ($q) => $q->whereHas('employee', fn ($q2) => $q2->whereIn('id', $teamEmployeeIds)))
+            ->when($isTeamLead, fn ($q) => $q->whereHas('employee', fn ($q2) => $q2->whereIn('id', $teamEmployeeIds)))
             ->orderBy('from_date')
             ->limit(5)
             ->get();
@@ -82,7 +82,7 @@ class AdminController extends Controller
     public function employees(Request $request)
     {
         $authUser = Auth::user()->load('role', 'team');
-        $role     = $authUser->role?->name;
+        $isTeamLead = $authUser->hasRole('team_lead');
 
         $query = Employee::with(['role', 'shift', 'team'])
             ->when($request->search, fn ($q, $s) => $q->where('name', 'like', "%{$s}%")
@@ -91,7 +91,7 @@ class AdminController extends Controller
             ->when($request->status, fn ($q, $s) => $q->where('status', $s));
 
         // Team leads only see their own team's employees
-        if ($role === 'team_lead') {
+        if ($isTeamLead) {
             $query->where('team_id', $authUser->team_id);
         }
 
@@ -99,7 +99,7 @@ class AdminController extends Controller
         $roles     = Role::all();
         $shifts    = Shift::where('is_active', true)->get();
         $teams     = Team::where('is_active', true)->get();
-        $canEdit   = $role === 'admin';
+        $canEdit   = $authUser->hasRole('admin');
 
         return view('admin.employees.index', compact('employees', 'roles', 'shifts', 'teams', 'canEdit'));
     }
@@ -191,7 +191,7 @@ class AdminController extends Controller
     public function attendanceReport(Request $request)
     {
         $viewer = Auth::user()->loadMissing('role');
-        $isTeamLead = $viewer->role?->name === 'team_lead';
+        $isTeamLead = $viewer->hasRole('team_lead');
 
         $month      = $request->input('month', now()->format('Y-m'));
         $employeeId = $request->input('employee_id');
@@ -256,7 +256,7 @@ class AdminController extends Controller
     public function exportAttendance(Request $request)
     {
         $viewer = Auth::user()->loadMissing('role');
-        $isTeamLead = $viewer->role?->name === 'team_lead';
+        $isTeamLead = $viewer->hasRole('team_lead');
 
         $month      = $request->input('month', now()->format('Y-m'));
         $employeeId = $request->input('employee_id');
@@ -377,7 +377,7 @@ class AdminController extends Controller
     public function editAttendance(AttendanceLog $log)
     {
         $viewer = Auth::user()->loadMissing('role');
-        if ($viewer->role?->name === 'team_lead' && $log->employee?->team_id !== $viewer->team_id) {
+        if ($viewer->hasRole('team_lead') && $log->employee?->team_id !== $viewer->team_id) {
             abort(403, 'You can only edit attendance for your own team members.');
         }
 
@@ -388,7 +388,7 @@ class AdminController extends Controller
     public function updateAttendance(Request $request, AttendanceLog $log)
     {
         $viewer = Auth::user()->loadMissing('role');
-        if ($viewer->role?->name === 'team_lead' && $log->employee?->team_id !== $viewer->team_id) {
+        if ($viewer->hasRole('team_lead') && $log->employee?->team_id !== $viewer->team_id) {
             abort(403, 'You can only update attendance for your own team members.');
         }
 

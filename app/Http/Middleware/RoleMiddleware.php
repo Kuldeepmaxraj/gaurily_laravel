@@ -20,7 +20,7 @@ class RoleMiddleware
             return redirect()->route('login');
         }
 
-        if (!in_array($employee->role?->name, $roles, true)) {
+        if (!$employee->hasAnyRole($roles)) {
             abort(403, 'Unauthorized.');
         }
 

@@ -79,7 +79,7 @@ class LeaveController extends Controller
     public function pending()
     {
         $reviewer = Auth::user()->loadMissing('role');
-        abort_unless(in_array($reviewer->role?->name, ['admin', 'team_lead'], true), 403);
+        abort_unless($reviewer->hasAnyRole(['admin', 'team_lead']), 403);
 
         $status = request('status', 'all');
         $month = request('month');
@@ -115,7 +115,7 @@ class LeaveController extends Controller
     public function records(Request $request)
     {
         $reviewer = Auth::user()->loadMissing('role');
-        abort_unless(in_array($reviewer->role?->name, ['admin', 'team_lead'], true), 403);
+        abort_unless($reviewer->hasAnyRole(['admin', 'team_lead']), 403);
 
         $status = $request->input('status', 'all');
         $month = $request->input('month', now()->format('Y-m'));
@@ -211,7 +211,7 @@ class LeaveController extends Controller
     {
         return \App\Models\Employee::where('status', 'active')
             ->when(
-                $reviewer->role?->name === 'team_lead',
+                $reviewer->hasRole('team_lead'),
                 fn ($q) => $q->when(
                     $reviewer->team_id,
                     fn ($q2) => $q2->where('team_id', $reviewer->team_id),
@@ -224,17 +224,17 @@ class LeaveController extends Controller
     {
         return LeaveRequest::with(['employee', 'leaveType', 'reviewer'])
             ->when(
-                $reviewer->role?->name === 'team_lead',
+                $reviewer->hasRole('team_lead'),
                 fn ($q) => $q->whereHas('employee', fn ($q2) => $q2->where('team_id', $reviewer->team_id ?? 0))
             );
     }
 
     private function ensureCanManageLeave($reviewer, LeaveRequest $leaveRequest): void
     {
-        abort_unless(in_array($reviewer->role?->name, ['admin', 'team_lead'], true), 403);
+        abort_unless($reviewer->hasAnyRole(['admin', 'team_lead']), 403);
 
         $leaveRequest->loadMissing('employee');
-        if ($reviewer->role?->name === 'team_lead' && $leaveRequest->employee?->team_id !== $reviewer->team_id) {
+        if ($reviewer->hasRole('team_lead') && $leaveRequest->employee?->team_id !== $reviewer->team_id) {
             abort(403, 'You can only manage leave requests for your own team members.');
         }
     }

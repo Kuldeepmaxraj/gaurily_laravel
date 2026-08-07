@@ -156,9 +156,14 @@
         </a>
     </div>
 
-    @php $role = auth()->user()?->role?->name; @endphp
+    @php
+        $user = auth()->user();
+        $isAdmin = $user?->hasRole('admin');
+        $isHr = $user?->hasRole('hr');
+        $isTeamLead = $user?->hasRole('team_lead');
+    @endphp
 
-    @if(in_array($role, ['admin','hr','team_lead']))
+    @if($isAdmin || $isHr || $isTeamLead)
         <div class="nav-section">Admin</div>
         <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
             <i class="bi bi-grid-1x2"></i> Dashboard
@@ -169,7 +174,7 @@
         <a href="{{ route('admin.teams') }}" class="{{ request()->routeIs('admin.teams*') ? 'active' : '' }}">
             <i class="bi bi-diagram-3"></i> Teams
         </a>
-        @if(in_array($role, ['admin','hr']))
+        @if($isAdmin || $isHr)
         <a href="{{ route('admin.blogs.index') }}" class="{{ request()->routeIs('admin.blogs*') ? 'active' : '' }}">
             <i class="bi bi-newspaper"></i> Blog
         </a>
@@ -177,7 +182,7 @@
         <a href="{{ route('admin.attendance') }}" class="{{ request()->routeIs('admin.attendance') ? 'active' : '' }}">
             <i class="bi bi-calendar-check"></i> Attendance
         </a>
-        @if(in_array($role, ['admin','team_lead']))
+        @if($isAdmin || $isTeamLead)
         <a href="{{ route('admin.leave.pending') }}" class="{{ request()->routeIs('admin.leave.pending') ? 'active' : '' }}">
             <i class="bi bi-file-earmark-text"></i> Leave Requests
         </a>
@@ -187,7 +192,7 @@
         </a>
         @endif
         @endif
-        @if(in_array($role, ['admin','hr']))
+        @if($isAdmin || $isHr)
         <a href="{{ route('admin.shifts') }}" class="{{ request()->routeIs('admin.shifts*') ? 'active' : '' }}">
             <i class="bi bi-clock"></i> Shifts & Timings
         </a>
