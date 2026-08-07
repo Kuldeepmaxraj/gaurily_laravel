@@ -3,9 +3,11 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-bold mb-0">Pending Leave Requests</h4>
+    @if(Route::has('admin.leave.records'))
     <a href="{{ route('admin.leave.records') }}" class="btn btn-outline-primary btn-sm">
         <i class="bi bi-journal-check me-1"></i>Leave Records
     </a>
+    @endif
 </div>
 
 <div class="card border-0 shadow-sm">

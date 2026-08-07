@@ -181,9 +181,11 @@
         <a href="{{ route('admin.leave.pending') }}" class="{{ request()->routeIs('admin.leave.pending') ? 'active' : '' }}">
             <i class="bi bi-file-earmark-text"></i> Leave Requests
         </a>
+        @if(Route::has('admin.leave.records'))
         <a href="{{ route('admin.leave.records') }}" class="{{ request()->routeIs('admin.leave.records') ? 'active' : '' }}">
             <i class="bi bi-journal-check"></i> Leave Records
         </a>
+        @endif
         @endif
         @if(in_array($role, ['admin','hr']))
         <a href="{{ route('admin.shifts') }}" class="{{ request()->routeIs('admin.shifts*') ? 'active' : '' }}">

@@ -10,7 +10,7 @@
     </a>
 </div>
 
-<form class="card border-0 shadow-sm p-3 mb-4" method="GET" action="{{ route('admin.leave.records') }}">
+<form class="card border-0 shadow-sm p-3 mb-4" method="GET" action="{{ Route::has('admin.leave.records') ? route('admin.leave.records') : url()->current() }}">
     <div class="row g-2 align-items-end">
         <div class="col-md-3">
             <label class="form-label small fw-semibold mb-1">Employee</label>
@@ -39,7 +39,7 @@
         </div>
         <div class="col-md-3 d-flex gap-2">
             <button class="btn btn-primary btn-sm w-100">Filter</button>
-            <a href="{{ route('admin.leave.records') }}" class="btn btn-outline-secondary btn-sm w-100">Clear</a>
+            <a href="{{ Route::has('admin.leave.records') ? route('admin.leave.records') : url()->current() }}" class="btn btn-outline-secondary btn-sm w-100">Clear</a>
         </div>
     </div>
 </form>
