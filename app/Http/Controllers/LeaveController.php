@@ -81,12 +81,35 @@ class LeaveController extends Controller
         $reviewer = Auth::user()->loadMissing('role');
         abort_unless(in_array($reviewer->role?->name, ['admin', 'team_lead'], true), 403);
 
-        $requests = $this->managedLeaveRequestsQuery($reviewer)
-            ->where('status', 'pending')
-            ->orderBy('from_date')
-            ->paginate(20);
+        $status = request('status', 'all');
+        $month = request('month');
+        $employeeId = request('employee_id');
+        $employeeId = $employeeId ? (int) $employeeId : null;
 
-        return view('admin.leave.pending', compact('requests'));
+        $employees = $this->visibleEmployeesQuery($reviewer)->orderBy('name')->get();
+
+        if ($employeeId && !$employees->pluck('id')->contains($employeeId)) {
+            abort(403, 'You can only view leave history for your own team members.');
+        }
+
+        $requestsQuery = $this->managedLeaveRequestsQuery($reviewer)
+            ->when($status !== 'all', fn ($q) => $q->where('status', $status))
+            ->when($employeeId, fn ($q) => $q->where('employee_id', $employeeId));
+
+        if (!empty($month) && preg_match('/^\d{4}-\d{2}$/', $month)) {
+            [$year, $mon] = explode('-', $month);
+            $requestsQuery
+                ->whereYear('from_date', $year)
+                ->whereMonth('from_date', $mon);
+        }
+
+        $requests = $requestsQuery
+            ->orderByDesc('from_date')
+            ->orderByDesc('created_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.leave.pending', compact('requests', 'employees', 'status', 'month', 'employeeId'));
     }
 
     public function records(Request $request)
