@@ -105,6 +105,15 @@ Route::middleware(['auth', 'role:admin,hr,team_lead'])->prefix('admin')->name('a
     Route::get('/attendance/export',                   [AdminController::class, 'exportAttendance'])->name('attendance.export');
     Route::get('/attendance/{log}/edit',               [AdminController::class, 'editAttendance'])->name('attendance.edit');
     Route::put('/attendance/{log}',                    [AdminController::class, 'updateAttendance'])->name('attendance.update');
+
+    // Leave review / records (admin + team lead)
+    Route::middleware('role:admin,team_lead')->group(function () {
+        Route::get('/leave/pending',                 [LeaveController::class, 'pending'])->name('leave.pending');
+        Route::get('/leave/records',                 [LeaveController::class, 'records'])->name('leave.records');
+        Route::post('/leave/{leaveRequest}/approve', [LeaveController::class, 'approve'])->name('leave.approve');
+        Route::post('/leave/{leaveRequest}/reject',  [LeaveController::class, 'reject'])->name('leave.reject');
+    });
+
     Route::middleware('role:admin,hr')->group(function () {
         Route::get('/shifts',                    [AdminController::class, 'shifts'])->name('shifts');
         Route::get('/shifts/create',             [AdminController::class, 'createShift'])->name('shifts.create');
@@ -113,12 +122,8 @@ Route::middleware(['auth', 'role:admin,hr,team_lead'])->prefix('admin')->name('a
         Route::put('/shifts/{shift}',            [AdminController::class, 'updateShift'])->name('shifts.update');
     });
 
-    // Leave approval (admin/hr only)
+    // Admin / HR settings
     Route::middleware('role:admin,hr')->group(function () {
-        Route::get('/leave/pending',                 [LeaveController::class, 'pending'])->name('leave.pending');
-        Route::post('/leave/{leaveRequest}/approve', [LeaveController::class, 'approve'])->name('leave.approve');
-        Route::post('/leave/{leaveRequest}/reject',  [LeaveController::class, 'reject'])->name('leave.reject');
-
         // Holidays
         Route::get('/holidays',             [HolidayController::class, 'index'])->name('holidays');
         Route::post('/holidays',            [HolidayController::class, 'store'])->name('holidays.store');

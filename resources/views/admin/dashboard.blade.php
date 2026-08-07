@@ -80,4 +80,34 @@
         </div>
     </div>
 </div>
+
+<div class="row g-4 mt-1">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold border-0 pt-4 px-4">
+                Upcoming Holidays
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light"><tr><th>Date</th><th>Holiday</th><th>Type</th></tr></thead>
+                    <tbody>
+                        @forelse($upcomingHolidays as $holiday)
+                        <tr>
+                            <td>{{ $holiday->holiday_date->format('d M Y') }}</td>
+                            <td>{{ $holiday->name }}</td>
+                            <td>
+                                <span class="badge bg-{{ $holiday->is_optional ? 'warning text-dark' : 'success' }}">
+                                    {{ $holiday->is_optional ? 'Optional' : 'Public' }}
+                                </span>
+                            </td>
+                        </tr>
+                        @empty
+                        <tr><td colspan="3" class="text-center text-muted py-3">No upcoming holidays.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection

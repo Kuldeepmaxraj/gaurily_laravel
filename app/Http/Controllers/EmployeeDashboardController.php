@@ -44,9 +44,9 @@ class EmployeeDashboardController extends Controller
             ->limit(5)
             ->get();
 
-        $upcomingHolidays = Holiday::where('holiday_date', '>=', today())
-            ->where('holiday_date', '<=', today()->addDays(60))
+        $upcomingHolidays = Holiday::whereDate('holiday_date', '>=', today())
             ->orderBy('holiday_date')
+            ->limit(2)
             ->get();
 
         $allowedBreak = (int) AttendanceSetting::getValue('allowed_break_minutes', 30);

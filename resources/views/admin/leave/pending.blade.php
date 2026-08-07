@@ -1,7 +1,12 @@
 @extends('layouts.dashboard')
 @section('title', 'Pending Leave Requests')
 @section('content')
-<h4 class="fw-bold mb-4">Pending Leave Requests</h4>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold mb-0">Pending Leave Requests</h4>
+    <a href="{{ route('admin.leave.records') }}" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-journal-check me-1"></i>Leave Records
+    </a>
+</div>
 
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">

@@ -78,7 +78,10 @@ class LeaveController extends Controller
 
     public function pending()
     {
-        $requests = LeaveRequest::with(['employee', 'leaveType'])
+        $reviewer = Auth::user()->loadMissing('role');
+        abort_unless(in_array($reviewer->role?->name, ['admin', 'team_lead'], true), 403);
+
+        $requests = $this->managedLeaveRequestsQuery($reviewer)
             ->where('status', 'pending')
             ->orderBy('from_date')
             ->paginate(20);
@@ -86,8 +89,40 @@ class LeaveController extends Controller
         return view('admin.leave.pending', compact('requests'));
     }
 
+    public function records(Request $request)
+    {
+        $reviewer = Auth::user()->loadMissing('role');
+        abort_unless(in_array($reviewer->role?->name, ['admin', 'team_lead'], true), 403);
+
+        $status = $request->input('status', 'all');
+        $month = $request->input('month', now()->format('Y-m'));
+        $employeeId = $request->input('employee_id');
+        $employeeId = $employeeId ? (int) $employeeId : null;
+        [$year, $mon] = explode('-', $month);
+
+        $employees = $this->visibleEmployeesQuery($reviewer)->orderBy('name')->get();
+
+        if ($employeeId && !$employees->pluck('id')->contains($employeeId)) {
+            abort(403, 'You can only view leave records for your own team members.');
+        }
+
+        $requests = $this->managedLeaveRequestsQuery($reviewer)
+            ->whereYear('from_date', $year)
+            ->whereMonth('from_date', $mon)
+            ->when($employeeId, fn ($q) => $q->where('employee_id', $employeeId))
+            ->when($status !== 'all', fn ($q) => $q->where('status', $status))
+            ->orderByDesc('from_date')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.leave.records', compact('requests', 'employees', 'status', 'month', 'employeeId'));
+    }
+
     public function approve(LeaveRequest $leaveRequest)
     {
+        $reviewer = Auth::user()->loadMissing('role');
+        $this->ensureCanManageLeave($reviewer, $leaveRequest);
+
         if ($leaveRequest->status !== 'pending') {
             return back()->with('error', 'Request is not pending.');
         }
@@ -123,6 +158,9 @@ class LeaveController extends Controller
 
     public function reject(LeaveRequest $leaveRequest)
     {
+        $reviewer = Auth::user()->loadMissing('role');
+        $this->ensureCanManageLeave($reviewer, $leaveRequest);
+
         $data = request()->validate(['reviewer_comment' => 'required|string|max:300']);
 
         if ($leaveRequest->status !== 'pending') {
@@ -144,5 +182,37 @@ class LeaveController extends Controller
         ]);
 
         return back()->with('success', 'Leave rejected.');
+    }
+
+    private function visibleEmployeesQuery($reviewer)
+    {
+        return \App\Models\Employee::where('status', 'active')
+            ->when(
+                $reviewer->role?->name === 'team_lead',
+                fn ($q) => $q->when(
+                    $reviewer->team_id,
+                    fn ($q2) => $q2->where('team_id', $reviewer->team_id),
+                    fn ($q2) => $q2->whereRaw('1 = 0')
+                )
+            );
+    }
+
+    private function managedLeaveRequestsQuery($reviewer)
+    {
+        return LeaveRequest::with(['employee', 'leaveType', 'reviewer'])
+            ->when(
+                $reviewer->role?->name === 'team_lead',
+                fn ($q) => $q->whereHas('employee', fn ($q2) => $q2->where('team_id', $reviewer->team_id ?? 0))
+            );
+    }
+
+    private function ensureCanManageLeave($reviewer, LeaveRequest $leaveRequest): void
+    {
+        abort_unless(in_array($reviewer->role?->name, ['admin', 'team_lead'], true), 403);
+
+        $leaveRequest->loadMissing('employee');
+        if ($reviewer->role?->name === 'team_lead' && $leaveRequest->employee?->team_id !== $reviewer->team_id) {
+            abort(403, 'You can only manage leave requests for your own team members.');
+        }
     }
 }

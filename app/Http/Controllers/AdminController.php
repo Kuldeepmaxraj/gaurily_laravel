@@ -25,32 +25,55 @@ class AdminController extends Controller
 {
     public function dashboard()
     {
+        $viewer = Auth::user()->loadMissing('role');
+        $role = $viewer->role?->name;
         $today = today();
 
-        $totalEmployees  = Employee::where('status', 'active')->count();
+        $teamEmployeeIds = null;
+        if ($role === 'team_lead') {
+            $teamEmployeeIds = Employee::query()
+                ->when($viewer->team_id, fn ($q) => $q->where('team_id', $viewer->team_id), fn ($q) => $q->whereRaw('1 = 0'))
+                ->pluck('id');
+        }
+
+        $totalEmployees  = Employee::where('status', 'active')
+                            ->when($role === 'team_lead', fn ($q) => $q->whereIn('id', $teamEmployeeIds))
+                            ->count();
         $presentToday    = AttendanceLog::where('attendance_date', $today)
+                            ->when($role === 'team_lead', fn ($q) => $q->whereIn('employee_id', $teamEmployeeIds))
                             ->where('status', 'present')->count();
         $halfDayToday    = AttendanceLog::where('attendance_date', $today)
+                            ->when($role === 'team_lead', fn ($q) => $q->whereIn('employee_id', $teamEmployeeIds))
                             ->where('status', 'half_day')->count();
         $lateToday       = AttendanceLog::where('attendance_date', $today)
+                            ->when($role === 'team_lead', fn ($q) => $q->whereIn('employee_id', $teamEmployeeIds))
                             ->where('is_late', true)->count();
-        $pendingLeaves   = LeaveRequest::where('status', 'pending')->count();
+        $pendingLeaves   = LeaveRequest::where('status', 'pending')
+            ->when($role === 'team_lead', fn ($q) => $q->whereHas('employee', fn ($q2) => $q2->whereIn('id', $teamEmployeeIds)))
+            ->count();
 
         $recentAttendance = AttendanceLog::with('employee')
             ->where('attendance_date', $today)
+            ->when($role === 'team_lead', fn ($q) => $q->whereIn('employee_id', $teamEmployeeIds))
             ->orderByDesc('login_time')
             ->limit(10)
             ->get();
 
         $pendingLeaveList = LeaveRequest::with(['employee', 'leaveType'])
             ->where('status', 'pending')
+            ->when($role === 'team_lead', fn ($q) => $q->whereHas('employee', fn ($q2) => $q2->whereIn('id', $teamEmployeeIds)))
             ->orderBy('from_date')
             ->limit(5)
             ->get();
 
+        $upcomingHolidays = Holiday::whereDate('holiday_date', '>=', today())
+            ->orderBy('holiday_date')
+            ->limit(2)
+            ->get();
+
         return view('admin.dashboard', compact(
             'totalEmployees', 'presentToday', 'halfDayToday', 'lateToday',
-            'pendingLeaves', 'recentAttendance', 'pendingLeaveList'
+            'pendingLeaves', 'recentAttendance', 'pendingLeaveList', 'upcomingHolidays'
         ));
     }
 
@@ -167,26 +190,39 @@ class AdminController extends Controller
 
     public function attendanceReport(Request $request)
     {
+        $viewer = Auth::user()->loadMissing('role');
+        $isTeamLead = $viewer->role?->name === 'team_lead';
+
         $month      = $request->input('month', now()->format('Y-m'));
         $employeeId = $request->input('employee_id');
+        $employeeId = $employeeId ? (int) $employeeId : null;
         [$year, $mon] = explode('-', $month);
+
+        $employeesQuery = Employee::where('status', 'active')
+            ->when($isTeamLead, fn ($q) => $q->when($viewer->team_id, fn ($q2) => $q2->where('team_id', $viewer->team_id), fn ($q2) => $q2->whereRaw('1 = 0')));
+        $employees = $employeesQuery->orderBy('name')->get();
+
+        if ($employeeId && !$employees->pluck('id')->contains($employeeId)) {
+            abort(403, 'You can only view attendance for your own team members.');
+        }
 
         $query = AttendanceLog::with(['employee', 'shift', 'workLogs'])
             ->whereYear('attendance_date', $year)
-            ->whereMonth('attendance_date', $mon);
+            ->whereMonth('attendance_date', $mon)
+            ->when($isTeamLead, fn ($q) => $q->whereHas('employee', fn ($q2) => $q2->where('team_id', $viewer->team_id ?? 0)));
 
         if ($employeeId) {
             $query->where('employee_id', $employeeId);
         }
 
         $logs      = $query->orderByDesc('attendance_date')->paginate(50)->withQueryString();
-        $employees = Employee::where('status', 'active')->orderBy('name')->get();
         $allowedBreak = (int) AttendanceSetting::getValue('allowed_break_minutes', 30);
 
         // Unpaginated data for summaries
         $allQuery = AttendanceLog::with('employee')
             ->whereYear('attendance_date', $year)
-            ->whereMonth('attendance_date', $mon);
+            ->whereMonth('attendance_date', $mon)
+            ->when($isTeamLead, fn ($q) => $q->whereHas('employee', fn ($q2) => $q2->where('team_id', $viewer->team_id ?? 0)));
         if ($employeeId) {
             $allQuery->where('employee_id', $employeeId);
         }
@@ -219,13 +255,28 @@ class AdminController extends Controller
 
     public function exportAttendance(Request $request)
     {
+        $viewer = Auth::user()->loadMissing('role');
+        $isTeamLead = $viewer->role?->name === 'team_lead';
+
         $month      = $request->input('month', now()->format('Y-m'));
         $employeeId = $request->input('employee_id');
+        $employeeId = $employeeId ? (int) $employeeId : null;
         [$year, $mon] = explode('-', $month);
+
+        if ($employeeId && $isTeamLead) {
+            $isTeamEmployee = Employee::where('id', $employeeId)
+                ->where('team_id', $viewer->team_id ?? 0)
+                ->exists();
+
+            if (!$isTeamEmployee) {
+                abort(403, 'You can only export attendance for your own team members.');
+            }
+        }
 
         $query = AttendanceLog::with(['employee', 'shift', 'workLogs'])
             ->whereYear('attendance_date', $year)
-            ->whereMonth('attendance_date', $mon);
+            ->whereMonth('attendance_date', $mon)
+            ->when($isTeamLead, fn ($q) => $q->whereHas('employee', fn ($q2) => $q2->where('team_id', $viewer->team_id ?? 0)));
 
         if ($employeeId) {
             $query->where('employee_id', $employeeId);
@@ -325,12 +376,22 @@ class AdminController extends Controller
 
     public function editAttendance(AttendanceLog $log)
     {
+        $viewer = Auth::user()->loadMissing('role');
+        if ($viewer->role?->name === 'team_lead' && $log->employee?->team_id !== $viewer->team_id) {
+            abort(403, 'You can only edit attendance for your own team members.');
+        }
+
         $log->load(['employee', 'shift', 'breaks']);
         return view('admin.attendance.edit', compact('log'));
     }
 
     public function updateAttendance(Request $request, AttendanceLog $log)
     {
+        $viewer = Auth::user()->loadMissing('role');
+        if ($viewer->role?->name === 'team_lead' && $log->employee?->team_id !== $viewer->team_id) {
+            abort(403, 'You can only update attendance for your own team members.');
+        }
+
         $data = $request->validate([
             'attendance_date' => 'required|date',
             'login_time'  => 'required|date_format:H:i',

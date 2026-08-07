@@ -177,12 +177,17 @@
         <a href="{{ route('admin.attendance') }}" class="{{ request()->routeIs('admin.attendance') ? 'active' : '' }}">
             <i class="bi bi-calendar-check"></i> Attendance
         </a>
+        @if(in_array($role, ['admin','team_lead']))
+        <a href="{{ route('admin.leave.pending') }}" class="{{ request()->routeIs('admin.leave.pending') ? 'active' : '' }}">
+            <i class="bi bi-file-earmark-text"></i> Leave Requests
+        </a>
+        <a href="{{ route('admin.leave.records') }}" class="{{ request()->routeIs('admin.leave.records') ? 'active' : '' }}">
+            <i class="bi bi-journal-check"></i> Leave Records
+        </a>
+        @endif
         @if(in_array($role, ['admin','hr']))
         <a href="{{ route('admin.shifts') }}" class="{{ request()->routeIs('admin.shifts*') ? 'active' : '' }}">
             <i class="bi bi-clock"></i> Shifts & Timings
-        </a>
-        <a href="{{ route('admin.leave.pending') }}" class="{{ request()->routeIs('admin.leave*') ? 'active' : '' }}">
-            <i class="bi bi-file-earmark-text"></i> Leave Requests
         </a>
         <a href="{{ route('admin.leave-balances') }}" class="{{ request()->routeIs('admin.leave-balances*') ? 'active' : '' }}">
             <i class="bi bi-calendar2-check"></i> Leave Balances
