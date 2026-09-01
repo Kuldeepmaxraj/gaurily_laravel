@@ -139,6 +139,7 @@ Route::middleware(['auth', 'role:admin,hr,team_lead'])->prefix('admin')->name('a
 Route::middleware(['auth', 'role:admin,team_lead'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/leave/pending',                 [LeaveController::class, 'pending'])->name('leave.pending')->withoutMiddleware('role:admin,hr');
     Route::get('/leave/records',                 [LeaveController::class, 'records'])->name('leave.records')->withoutMiddleware('role:admin,hr');
+    Route::post('/leave/record',                 [LeaveController::class, 'record'])->name('leave.record')->withoutMiddleware('role:admin,hr');
     Route::post('/leave/{leaveRequest}/approve', [LeaveController::class, 'approve'])->name('leave.approve')->withoutMiddleware('role:admin,hr');
     Route::post('/leave/{leaveRequest}/reject',  [LeaveController::class, 'reject'])->name('leave.reject')->withoutMiddleware('role:admin,hr');
 });

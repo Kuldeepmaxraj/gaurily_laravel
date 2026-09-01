@@ -3,11 +3,77 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-bold mb-0">Leave Requests & History</h4>
-    @if(Route::has('admin.leave.records'))
-    <a href="{{ route('admin.leave.records') }}" class="btn btn-outline-primary btn-sm">
-        <i class="bi bi-journal-check me-1"></i>Leave Records
-    </a>
-    @endif
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#recordLeaveModal">
+            <i class="bi bi-plus-lg me-1"></i>Record Leave
+        </button>
+        @if(Route::has('admin.leave.records'))
+        <a href="{{ route('admin.leave.records') }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-journal-check me-1"></i>Leave Records
+        </a>
+        @endif
+    </div>
+</div>
+
+{{-- Record a leave taken without an application (e.g. emergency). Past dates allowed. --}}
+<div class="modal fade" id="recordLeaveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Record Leave on Behalf of Employee</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ route('admin.leave.record') }}">
+                @csrf
+                <div class="modal-body">
+                    <div class="alert alert-info small py-2">
+                        Use this for leave already taken (e.g. an emergency) where the employee could not apply in advance.
+                        Past dates are allowed, the balance is deducted and attendance is marked as <strong>Leave</strong>.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Employee *</label>
+                        <select name="employee_id" class="form-select" required>
+                            <option value="">Select employee</option>
+                            @foreach($employees as $emp)
+                                <option value="{{ $emp->id }}" {{ old('employee_id') == $emp->id ? 'selected' : '' }}>
+                                    {{ $emp->name }} ({{ $emp->employee_code }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Leave Type *</label>
+                        <select name="leave_type_id" class="form-select" required>
+                            <option value="">Select leave type</option>
+                            @foreach($types as $type)
+                                <option value="{{ $type->id }}" {{ old('leave_type_id') == $type->id ? 'selected' : '' }}>
+                                    {{ $type->name }} ({{ $type->is_paid ? 'Paid' : 'Unpaid' }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">From *</label>
+                            <input type="date" name="from_date" class="form-control" value="{{ old('from_date') }}" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">To *</label>
+                            <input type="date" name="to_date" class="form-control" value="{{ old('to_date') }}" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label fw-semibold">Reason *</label>
+                        <textarea name="reason" class="form-control" rows="3" maxlength="500" required>{{ old('reason') }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Record Leave</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <form class="card border-0 shadow-sm p-3 mb-4" method="GET" action="{{ route('admin.leave.pending') }}">

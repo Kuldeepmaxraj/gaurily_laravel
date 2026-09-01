@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AttendanceLog;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\LeaveBalance;
@@ -9,6 +10,7 @@ use App\Models\EmployeeNotification;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class LeaveController extends Controller
 {
@@ -109,7 +111,116 @@ class LeaveController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin.leave.pending', compact('requests', 'employees', 'status', 'month', 'employeeId'));
+        $types = LeaveType::where('is_active', true)->orderBy('name')->get();
+
+        return view('admin.leave.pending', compact('requests', 'employees', 'status', 'month', 'employeeId', 'types'));
+    }
+
+    /**
+     * Record a leave on behalf of an employee (e.g. emergency leave taken without applying).
+     * Unlike employee self-service, past dates are allowed here.
+     */
+    public function record(Request $request)
+    {
+        $reviewer = Auth::user()->loadMissing('role');
+        abort_unless($reviewer->hasAnyRole(['admin', 'team_lead']), 403);
+
+        $data = $request->validate([
+            'employee_id'   => 'required|exists:employees,id',
+            'leave_type_id' => 'required|exists:leave_types,id',
+            'from_date'     => 'required|date',
+            'to_date'       => 'required|date|after_or_equal:from_date',
+            'reason'        => 'required|string|max:500',
+        ]);
+
+        $employee = $this->visibleEmployeesQuery($reviewer)->findOrFail($data['employee_id']);
+
+        $from      = Carbon::parse($data['from_date'])->startOfDay();
+        $to        = Carbon::parse($data['to_date'])->startOfDay();
+        $totalDays = LeaveRequest::calculateWorkingDays($from, $to);
+
+        if ($totalDays <= 0) {
+            return back()->with('error', 'The selected range contains no working days.');
+        }
+
+        $overlaps = LeaveRequest::where('employee_id', $employee->id)
+            ->whereIn('status', ['pending', 'approved'])
+            ->where('from_date', '<=', $to)
+            ->where('to_date', '>=', $from)
+            ->exists();
+
+        if ($overlaps) {
+            return back()->with('error', 'This employee already has a leave request covering those dates.');
+        }
+
+        $leaveType = LeaveType::findOrFail($data['leave_type_id']);
+        $balance   = LeaveBalance::where('employee_id', $employee->id)
+            ->where('leave_type_id', $leaveType->id)
+            ->where('year', $from->year)
+            ->first();
+
+        if ($leaveType->is_paid && (!$balance || $balance->balance < $totalDays)) {
+            return back()->with('error', 'Insufficient leave balance. Adjust the balance first or record this as an unpaid leave type.');
+        }
+
+        DB::transaction(function () use ($employee, $leaveType, $from, $to, $totalDays, $data, $balance) {
+            LeaveRequest::create([
+                'employee_id'      => $employee->id,
+                'leave_type_id'    => $leaveType->id,
+                'from_date'        => $from,
+                'to_date'          => $to,
+                'total_days'       => $totalDays,
+                'reason'           => $data['reason'],
+                'status'           => 'approved',
+                'reviewed_by'      => Auth::id(),
+                'reviewed_at'      => now(),
+                'reviewer_comment' => 'Recorded by ' . Auth::user()->name . ' on behalf of the employee.',
+            ]);
+
+            if ($balance) {
+                $balance->increment('used', $totalDays);
+                $balance->decrement('balance', $totalDays);
+            }
+
+            $this->syncAttendanceForLeave($employee, $from, $to);
+
+            EmployeeNotification::create([
+                'employee_id' => $employee->id,
+                'title'       => 'Leave Recorded',
+                'message'     => "A {$leaveType->name} of {$totalDays} day(s) from {$from->format('d M Y')} to {$to->format('d M Y')} was recorded on your behalf.",
+                'type'        => 'info',
+            ]);
+        });
+
+        return back()->with('success', "Leave recorded for {$employee->name} ({$totalDays} working day(s)).");
+    }
+
+    /**
+     * Mark each working day in the range as 'leave' in the attendance register,
+     * leaving days the employee actually clocked in for untouched.
+     */
+    private function syncAttendanceForLeave($employee, Carbon $from, Carbon $to): void
+    {
+        for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
+            if ($day->isWeekend() || \App\Models\Holiday::isHoliday($day)) {
+                continue;
+            }
+
+            $log = AttendanceLog::firstOrNew([
+                'employee_id'     => $employee->id,
+                'attendance_date' => $day->toDateString(),
+            ]);
+
+            if ($log->exists && $log->login_time) {
+                continue;
+            }
+
+            $log->fill([
+                'shift_id' => $log->shift_id ?? $employee->shift_id,
+                'status'   => 'leave',
+                'notes'    => trim(($log->notes ? $log->notes . ' | ' : '') . 'Marked as leave by ' . Auth::user()->name),
+            ])->save();
+        }
     }
 
     public function records(Request $request)
